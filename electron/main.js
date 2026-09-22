@@ -11,9 +11,10 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const { exec } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, shell, desktopCapturer } = require('electron');
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, shell, desktopCapturer, Tray, Menu, Notification } = require('electron');
 
 app.setName('due-process-scoreboard');
+app.setAppUserModelId('com.dpstat.tracker');
 
 const config = require('./config');
 const { MatchArchive } = require('./match-archive');
@@ -26,6 +27,9 @@ const { recordCompletedMatch, scanLogFileForCompletedMatches } = require('./resc
 
 let overlayWindow = null;
 let hubWindow = null;
+let tray = null;
+let isQuitting = false;
+let lastNotificationTime = 0;
 let rankedArchive = null; // match-archive.json — ranked (7-X / 6-6) matches, the ONLY source for career totals
 let otherArchive = null; // other-matches-archive.json — everything else (unranked, 2v2, Push, ...), never counted toward totals
 let mapLayoutLibrary = null;
@@ -112,8 +116,98 @@ function createHubWindow() {
     },
   });
   hubWindow.loadFile(path.join(__dirname, 'hub.html'));
+
+  // Close-to-tray behavior: hide window to tray instead of quitting,
+  // keeping the overlay and background log watcher active.
+  hubWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      hubWindow.hide();
+      showTrayNotification();
+    }
+  });
+
   hubWindow.on('closed', () => {
     hubWindow = null;
+  });
+}
+
+function showHubWindow() {
+  if (!hubWindow || hubWindow.isDestroyed()) {
+    createHubWindow();
+    hubWindow.webContents.once('did-finish-load', () => sendHubUpdate());
+  } else {
+    if (hubWindow.isMinimized()) hubWindow.restore();
+    if (!hubWindow.isVisible()) hubWindow.show();
+    hubWindow.focus();
+  }
+}
+
+function showTrayNotification() {
+  const now = Date.now();
+  if (now - lastNotificationTime < 5000) return;
+  lastNotificationTime = now;
+
+  const title = 'Due Process Tracker';
+  const body = 'App is running in the system tray. Live match tracking and overlay remain active.';
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title,
+      body,
+      icon: iconPath,
+      silent: false,
+    });
+    notification.on('click', () => {
+      showHubWindow();
+    });
+    notification.show();
+  } else if (tray && typeof tray.displayBalloon === 'function') {
+    tray.displayBalloon({
+      title,
+      content: body,
+      icon: iconPath,
+    });
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  const currentHotkey = settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY;
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open Tracker Hub',
+      click: () => showHubWindow(),
+    },
+    {
+      label: `Toggle Overlay (${currentHotkey})`,
+      click: () => toggleOverlayManually(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Tracker',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+  tray = new Tray(iconPath);
+  tray.setToolTip('Due Process Tracker');
+
+  updateTrayMenu();
+
+  tray.on('click', () => {
+    showHubWindow();
+  });
+  tray.on('double-click', () => {
+    showHubWindow();
   });
 }
 
@@ -721,6 +815,7 @@ ipcMain.handle('settings:set-overlay-hotkey', (_event, newHotkey) => {
   // Persist new hotkey
   settingsStore.set('overlayHotkey', trimmed);
   console.log(`Global overlay hotkey updated from ${current} to: ${trimmed}`);
+  updateTrayMenu();
 
   // Broadcast to both windows
   if (overlayWindow && !overlayWindow.isDestroyed()) {
@@ -767,6 +862,7 @@ ipcMain.handle('settings:reset-overlay-hotkey', (_event) => {
 
   settingsStore.set('overlayHotkey', defaultHotkey);
   console.log(`Global overlay hotkey reset to default: ${defaultHotkey}`);
+  updateTrayMenu();
 
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send('overlay:update-hotkey', defaultHotkey);
@@ -999,6 +1095,7 @@ async function main() {
   // recordCompletedMatch is dedupe-guarded), so re-sending is harmless.
   overlayWindow.webContents.once('did-finish-load', () => onParserUpdate());
   ensureHubWindowReady(() => sendHubUpdate());
+  createTray();
 
   const activeOverlayHotkey = settingsStore.get('overlayHotkey');
   const registered = globalShortcut.register(activeOverlayHotkey, toggleOverlayManually);
@@ -1068,15 +1165,27 @@ async function main() {
     if (BrowserWindow.getAllWindows().length === 0) {
       createOverlayWindow();
       createHubWindow();
+    } else {
+      showHubWindow();
     }
   });
 }
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  app.quit();
+  if (isQuitting) {
+    app.quit();
+  }
 });
 
 app.on('will-quit', () => {
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+    tray = null;
+  }
   globalShortcut.unregisterAll();
 });
 
