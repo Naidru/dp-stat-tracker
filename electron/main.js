@@ -800,6 +800,24 @@ ipcMain.handle('hub:get-player-detail', (_event, accountId) => {
   return rankedArchive.getSinglePlayedWith(accountId);
 });
 
+ipcMain.handle('hub:get-full-player-profile', (_event, accountId) => {
+  const rankedProfile = rankedArchive ? rankedArchive.getFullPlayerProfile(accountId, { isRanked: true }) : null;
+  const otherProfile = otherArchive ? otherArchive.getFullPlayerProfile(accountId, { isRanked: false }) : null;
+
+  if (!rankedProfile) {
+    return otherProfile;
+  }
+  if (otherProfile && Array.isArray(otherProfile.matchHistory) && otherProfile.matchHistory.length > 0) {
+    const combinedHistory = [...rankedProfile.matchHistory, ...otherProfile.matchHistory];
+    combinedHistory.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+    return {
+      ...rankedProfile,
+      matchHistory: combinedHistory,
+    };
+  }
+  return rankedProfile;
+});
+
 // Overlay -> Hub click-through: the overlay window can't open its own modal
 // (it has no such UI), so this ensures the Hub window exists, brings it
 // forward, and pushes the accountId over for hub-renderer.js's

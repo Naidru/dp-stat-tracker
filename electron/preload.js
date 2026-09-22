@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('hubAPI', {
   getRankedHistory: () => ipcRenderer.invoke('hub:get-ranked-history'),
   getOtherHistory: () => ipcRenderer.invoke('hub:get-other-history'),
   getPlayerDetail: (accountId) => ipcRenderer.invoke('hub:get-player-detail', accountId),
+  getFullPlayerProfile: (accountId) => ipcRenderer.invoke('hub:get-full-player-profile', accountId),
   getSteamAvatar: (accountId) => ipcRenderer.invoke('hub:get-steam-avatar', accountId),
   // Live player count for the game itself (Steam's public API), not
   // per-account data — see main.js's handleGetPlayerCount.

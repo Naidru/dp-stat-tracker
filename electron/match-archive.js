@@ -581,6 +581,289 @@ class MatchArchive {
     return this.getPlayedWithStats().find((p) => p.accountId === accountId) ?? null;
   }
 
+  /**
+   * Comprehensive historical profile for a single player by accountId.
+   * Aggregates combat metrics, attack vs defense splits, opening duels,
+   * weapon breakdown, and mutual match history.
+   */
+  getFullPlayerProfile(accountId, { isRanked = true } = {}) {
+    const localId = this.data.localAccountId;
+    const isSelf = !!localId && accountId === localId;
+    let latestName = null;
+    let totalMatches = 0;
+    let matchesTogether = 0;
+    let winsTogether = 0;
+    let lossesTogether = 0;
+    let matchesAgainst = 0;
+    let winsAgainst = 0;
+    let lossesAgainst = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+    let totalTies = 0;
+
+    let kills = 0;
+    let deaths = 0;
+    let assists = 0;
+    let damage = 0;
+    let roundsCounted = 0;
+    let kastRounds = 0;
+    let teamDamage = 0;
+
+    let attackDamage = 0;
+    let attackRounds = 0;
+    let defenseDamage = 0;
+    let defenseRounds = 0;
+
+    let duelsWon = 0;
+    let duelsInvolved = 0;
+
+    let totalHits = 0;
+    let totalHeadshots = 0;
+
+    const weaponMap = new Map();
+    const matchHistory = [];
+
+    const checkIs2v2 = (m) => {
+      if (!m) return false;
+      const t0 = Array.isArray(m.teams?.[0]) ? m.teams[0].length : 0;
+      const t1 = Array.isArray(m.teams?.[1]) ? m.teams[1].length : 0;
+      return m.is2v2 !== undefined
+        ? Boolean(m.is2v2)
+        : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+    };
+
+    for (const match of this.data.matches) {
+      if (!match.teams) continue;
+
+      let playerRow = null;
+      let playerSide = null;
+      for (const side of [0, 1]) {
+        const found = (match.teams[side] || []).find((r) => r.accountId === accountId);
+        if (found) {
+          playerRow = found;
+          playerSide = side;
+          break;
+        }
+      }
+
+      if (!playerRow) continue;
+
+      totalMatches += 1;
+      if (playerRow.name) latestName = playerRow.name;
+
+      let mySide = null;
+      if (localId) {
+        if (match.teams[0]?.some((r) => r.accountId === localId)) mySide = 0;
+        else if (match.teams[1]?.some((r) => r.accountId === localId)) mySide = 1;
+      }
+
+      const isTeammate = mySide !== null && playerSide === mySide;
+      const isOpponent = mySide !== null && playerSide !== mySide;
+
+      const tied = match.tied ?? match.myScore === match.oppScore;
+      if (tied) {
+        totalTies += 1;
+      } else {
+        if (isSelf) {
+          if (match.won) totalWins += 1;
+          else totalLosses += 1;
+        } else if (isTeammate) {
+          matchesTogether += 1;
+          if (match.won) winsTogether += 1;
+          else lossesTogether += 1;
+        } else if (isOpponent) {
+          matchesAgainst += 1;
+          if (match.won) winsAgainst += 1;
+          else lossesAgainst += 1;
+        }
+      }
+
+      kills += playerRow.kills ?? 0;
+      deaths += playerRow.deaths ?? 0;
+      assists += playerRow.assists ?? 0;
+      damage += playerRow.damage ?? 0;
+      teamDamage += playerRow.teamDamage ?? 0;
+
+      const matchRounds = playerRow.kast?.roundsCounted ?? match.roundCount ?? 0;
+      roundsCounted += matchRounds;
+      kastRounds += playerRow.kast?.kastRounds ?? 0;
+
+      if (playerRow.adr) {
+        const atkDmg = playerRow.adr.attackDamageRaw !== undefined
+          ? playerRow.adr.attackDamageRaw
+          : (playerRow.adr.attack ?? 0) * (playerRow.adr.attackRounds ?? 0);
+        attackDamage += atkDmg;
+        attackRounds += playerRow.adr.attackRounds ?? 0;
+
+        const defDmg = playerRow.adr.defenseDamageRaw !== undefined
+          ? playerRow.adr.defenseDamageRaw
+          : (playerRow.adr.defense ?? 0) * (playerRow.adr.defenseRounds ?? 0);
+        defenseDamage += defDmg;
+        defenseRounds += playerRow.adr.defenseRounds ?? 0;
+      }
+
+      if (playerRow.openingDuels) {
+        duelsWon += playerRow.openingDuels.won ?? 0;
+        duelsInvolved += playerRow.openingDuels.involved ?? 0;
+      }
+
+      if (Array.isArray(playerRow.weaponBreakdown)) {
+        for (const w of playerRow.weaponBreakdown) {
+          totalHits += w.hits ?? 0;
+          totalHeadshots += w.headshots ?? 0;
+
+          const key = w.damageSource ?? w.label;
+          const cur = weaponMap.get(key) ?? {
+            damageSource: w.damageSource,
+            label: w.label || WEAPON_META[w.damageSource]?.label || `Weapon #${w.damageSource}`,
+            category: w.category || WEAPON_META[w.damageSource]?.category || 'Unknown',
+            fireType: w.fireType || WEAPON_META[w.damageSource]?.fireType || 'Auto',
+            kills: 0,
+            deaths: 0,
+            hits: 0,
+            headshots: 0,
+            damage: 0,
+            roundsUsed: 0,
+          };
+          cur.kills += w.kills ?? 0;
+          cur.deaths += w.deaths ?? 0;
+          cur.hits += w.hits ?? 0;
+          cur.headshots += w.headshots ?? 0;
+          cur.damage += w.damage ?? 0;
+          cur.roundsUsed += w.roundsUsed ?? 0;
+          weaponMap.set(key, cur);
+        }
+      }
+
+      const team0 = match.team0Name || 'Blue Team';
+      const team1 = match.team1Name || 'Orange Team';
+      const matchup = `${team0} vs ${team1}`;
+
+      let playerWon = false;
+      let playerTied = tied;
+      if (mySide !== null) {
+        if (isTeammate || isSelf) {
+          playerWon = !!match.won;
+        } else if (isOpponent) {
+          playerWon = !match.won && !tied;
+        }
+      } else {
+        const pScore = playerSide === 0 ? match.team0Score ?? match.myScore : match.team1Score ?? match.oppScore;
+        const oScore = playerSide === 0 ? match.team1Score ?? match.oppScore : match.team0Score ?? match.myScore;
+        playerWon = pScore > oScore;
+        playerTied = pScore === oScore;
+      }
+
+      matchHistory.push({
+        matchId: match.matchId,
+        timestamp: match.timestamp,
+        matchup,
+        mapLabel: match.mapLabel || 'Unknown Map',
+        isRanked,
+        is2v2: checkIs2v2(match),
+        won: match.won,
+        tied: playerTied,
+        playerWon,
+        myScore: match.myScore,
+        oppScore: match.oppScore,
+        isTeammate,
+        isOpponent,
+        isSelf,
+        kills: playerRow.kills ?? 0,
+        deaths: playerRow.deaths ?? 0,
+        assists: playerRow.assists ?? 0,
+        damage: playerRow.damage ?? 0,
+        hsPercent: playerRow.hsPercent ?? null,
+        dplRating: playerRow.dplRating ?? 1.0,
+      });
+    }
+
+    if (totalMatches === 0) return null;
+
+    matchHistory.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+
+    const winRateTogether = matchesTogether > 0 ? Math.round((winsTogether / matchesTogether) * 100) : 0;
+    const winRateAgainst = matchesAgainst > 0 ? Math.round((winsAgainst / matchesAgainst) * 100) : 0;
+    const kdr = deaths > 0 ? kills / deaths : kills;
+    const adr = roundsCounted > 0 ? damage / roundsCounted : 0;
+    const kastPct = roundsCounted > 0 ? Math.round((kastRounds / roundsCounted) * 100) : 0;
+
+    const playerWins = isSelf ? totalWins : (winsTogether + lossesAgainst);
+    const relevantMatches = isSelf ? (totalWins + totalLosses) : (matchesTogether + matchesAgainst);
+    const overallWinRate = relevantMatches > 0 ? (playerWins / relevantMatches) * 100 : 50;
+
+    const dplRating = computeDplRating({
+      kills,
+      deaths,
+      assists,
+      damage,
+      roundsCounted,
+      kastRounds,
+      winRate: overallWinRate,
+    });
+
+    const attackAdr = attackRounds > 0 ? Math.round(attackDamage / attackRounds) : 0;
+    const defenseAdr = defenseRounds > 0 ? Math.round(defenseDamage / defenseRounds) : 0;
+
+    const openingDuelRate = duelsInvolved > 0 ? Math.round((duelsWon / duelsInvolved) * 100) : 0;
+    const hsPercent = totalHits > 0 ? Math.round((totalHeadshots / totalHits) * 100) : 0;
+
+    const weapons = [...weaponMap.values()]
+      .map((w) => ({
+        ...w,
+        hsPercent: w.hits > 0 ? Math.round((w.headshots / w.hits) * 100) : 0,
+        kpr: w.roundsUsed > 0 ? round2(w.kills / w.roundsUsed) : round2(w.kills),
+      }))
+      .sort((a, b) => b.kills - a.kills || b.damage - a.damage);
+
+    return {
+      accountId,
+      name: latestName || `Player #${accountId.slice(-4)}`,
+      isSelf,
+      totalMatches,
+      matchesTogether,
+      winsTogether,
+      lossesTogether,
+      winRateTogether,
+      matchesAgainst,
+      winsAgainst,
+      lossesAgainst,
+      winRateAgainst,
+      totalWins,
+      totalLosses,
+      totalTies,
+      overallWinRate: Math.round(overallWinRate),
+      kills,
+      deaths,
+      assists,
+      kdr: round2(kdr),
+      damage,
+      adr: Math.round(adr),
+      roundsCounted,
+      kast: kastPct,
+      dplRating,
+      teamDamage,
+      attackAdr,
+      attackDamage,
+      attackRounds,
+      defenseAdr,
+      defenseDamage,
+      defenseRounds,
+      openingDuels: {
+        won: duelsWon,
+        involved: duelsInvolved,
+        winRate: openingDuelRate,
+      },
+      headshots: {
+        hits: totalHits,
+        headshots: totalHeadshots,
+        hsPercent,
+      },
+      weapons,
+      matchHistory,
+    };
+  }
+
   saveMapNote(mapName, note) {
     if (!this.data.mapNotes) this.data.mapNotes = {};
     this.data.mapNotes[mapName] = note;
