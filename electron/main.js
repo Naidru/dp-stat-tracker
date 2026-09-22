@@ -783,10 +783,17 @@ ipcMain.handle('settings:reset-overlay-hotkey', (_event) => {
 // whichever archive actually has it — works even after the source log has
 // rotated away, since the full scoreboard was persisted at record time.
 ipcMain.handle('hub:get-match-detail', (_event, matchId) => {
+  const checkIs2v2 = (m) => {
+    const t0 = m.teams && m.teams[0] ? m.teams[0].length : 0;
+    const t1 = m.teams && m.teams[1] ? m.teams[1].length : 0;
+    return m.is2v2 !== undefined
+      ? Boolean(m.is2v2)
+      : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+  };
   const rankedMatch = rankedArchive.getMatch(matchId);
-  if (rankedMatch) return { ...rankedMatch, isRanked: true };
+  if (rankedMatch) return { ...rankedMatch, isRanked: true, is2v2: checkIs2v2(rankedMatch) };
   const otherMatch = otherArchive.getMatch(matchId);
-  return otherMatch ? { ...otherMatch, isRanked: false } : null;
+  return otherMatch ? { ...otherMatch, isRanked: false, is2v2: checkIs2v2(otherMatch) } : null;
 });
 
 ipcMain.handle('hub:get-player-detail', (_event, accountId) => {

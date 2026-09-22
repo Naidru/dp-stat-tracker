@@ -328,7 +328,12 @@ async function fetchAndRenderHistory(kind) {
   const hasAny = matches.length > 0;
   emptyEl.hidden = hasAny;
   panelEl.hidden = !hasAny;
-  if (hasAny) renderMatchRows(bodyEl, matches);
+  if (hasAny) {
+    const tagged = kind === 'other'
+      ? matches.map((m) => ({ ...m, source: m.is2v2 ? '2v2' : 'other' }))
+      : matches;
+    renderMatchRows(bodyEl, tagged, { tagSource: kind === 'other' });
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -381,7 +386,7 @@ function render(data) {
     // the two lists already came in at individually.
     const tagged = [
       ...rankedMatches.map((m) => ({ ...m, source: 'ranked' })),
-      ...otherMatches.map((m) => ({ ...m, source: 'other' })),
+      ...otherMatches.map((m) => ({ ...m, source: m.is2v2 ? '2v2' : 'other' })),
     ];
     tagged.sort((a, b) => b.timestamp - a.timestamp);
     renderMatchRows(recentMatchesBody, tagged.slice(0, 8), { tagSource: true });
@@ -1303,9 +1308,9 @@ weaponSearchInput.addEventListener('input', (e) => {
 });
 
 // Shared by Home's unified feed and both History views — same row shape
-// (result/map/score/K-D-A/played/delete) everywhere; only Home tags rows
-// with a RANKED/OTHER badge (opts.tagSource), since the two History views
-// are already scoped to one archive each.
+// (result/map/score/K-D-A/played/delete) everywhere; Home and Other History
+// tag rows with a RANKED/2v2/OTHER badge (opts.tagSource), since Home mixes
+// all sources and Other History contains both 2v2 and casual/custom modes.
 function renderMatchRows(tbody, matches, opts = {}) {
   tbody.innerHTML = '';
   for (const m of matches) {
@@ -1314,8 +1319,11 @@ function renderMatchRows(tbody, matches, opts = {}) {
     tr.title = 'Click for the full scoreboard';
     const resultClass = m.tied ? 'result-tie' : m.won ? 'result-win' : 'result-loss';
     const resultText = m.tied ? 'TIE' : m.won ? 'WIN' : 'LOSS';
+    const is2v2Match = m.source === '2v2' || m.is2v2;
+    const badgeClass = m.source === 'ranked' ? 'ranked' : is2v2Match ? '2v2' : 'other';
+    const badgeText = m.source === 'ranked' ? 'RANKED' : is2v2Match ? '2v2' : 'OTHER';
     const sourceBadge = opts.tagSource
-      ? `<span class="source-badge source-badge--${m.source}">${m.source === 'ranked' ? 'RANKED' : 'OTHER'}</span>`
+      ? `<span class="source-badge source-badge--${badgeClass}">${badgeText}</span>`
       : '';
     const myScoreClass = m.tied ? '' : m.won ? '' : 'result-loss';
     const oppScoreClass = m.tied ? '' : m.won ? 'result-win' : '';
@@ -1556,8 +1564,10 @@ async function openMatchDetail(matchId) {
     }
   }
 
+  const modeClass = match.isRanked ? 'ranked' : match.is2v2 ? '2v2' : 'other';
+  const modeText = match.isRanked ? 'RANKED' : match.is2v2 ? '2v2' : 'OTHER';
   const inferredNote = match.inferred ? ' · INFERRED (no matchEnded seen)' : '';
-  matchDetailMeta.textContent = `${match.roundCount} rounds${inferredNote}`;
+  matchDetailMeta.innerHTML = `<span class="source-badge source-badge--${modeClass}" style="margin-left:0;margin-right:6px">${modeText}</span>${match.roundCount} rounds${inferredNote}`;
   renderScoreboardTeams(matchDetailTeams, {
     finalScore: match.finalScore,
     teams: match.teams,

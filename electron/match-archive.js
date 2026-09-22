@@ -336,23 +336,31 @@ class MatchArchive {
     return [...this.data.matches]
       .reverse()
       .slice(0, limit)
-      .map((m) => ({
-        matchId: m.matchId,
-        timestamp: m.timestamp,
-        won: m.won,
-        tied: m.tied ?? m.myScore === m.oppScore,
-        myScore: m.myScore,
-        oppScore: m.oppScore,
-        team0Name: m.team0Name ?? 'Blue Team',
-        team1Name: m.team1Name ?? 'Orange Team',
-        matchup: `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`,
-        mapLabel: m.mapLabel,
-        mapRounds: m.mapRounds,
-        kills: m.kills,
-        deaths: m.deaths,
-        assists: m.assists,
-        inferred: m.inferred,
-      }));
+      .map((m) => {
+        const t0 = m.teams && m.teams[0] ? m.teams[0].length : 0;
+        const t1 = m.teams && m.teams[1] ? m.teams[1].length : 0;
+        const is2v2 = m.is2v2 !== undefined
+          ? Boolean(m.is2v2)
+          : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+        return {
+          matchId: m.matchId,
+          timestamp: m.timestamp,
+          won: m.won,
+          tied: m.tied ?? m.myScore === m.oppScore,
+          is2v2,
+          myScore: m.myScore,
+          oppScore: m.oppScore,
+          team0Name: m.team0Name ?? 'Blue Team',
+          team1Name: m.team1Name ?? 'Orange Team',
+          matchup: `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`,
+          mapLabel: m.mapLabel,
+          mapRounds: m.mapRounds,
+          kills: m.kills,
+          deaths: m.deaths,
+          assists: m.assists,
+          inferred: m.inferred,
+        };
+      });
   }
 
   /**
