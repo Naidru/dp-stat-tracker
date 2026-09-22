@@ -57,8 +57,8 @@ const WEAPON_META = {
   // weaponMeta — see that file's comment for how this was identified from
   // log evidence (a suppressor doesn't change damage, only sound/recoil).
   19: { label: 'Gruber-SD', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  50: { label: 'Grenade', category: 'Explosive', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  51: { label: 'Molotov Cocktail', category: 'Explosive', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
+  50: { label: 'Grenade', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
+  51: { label: 'Molotov Cocktail', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
 };
 
 function emptyData() {
@@ -377,7 +377,7 @@ class MatchArchive {
         const existing = byCode.get(w.damageSource) ?? {
           damageSource: w.damageSource,
           label: label === 'Big AK' ? 'KR82M' : label === 'Mini AK' ? 'KR82U' : label,
-          category: w.category ?? meta.category,
+          category: meta.category ?? (w.category === 'Explosive' ? 'Throwable' : w.category),
           fireType: w.fireType ?? meta.fireType,
           baseDamage: w.baseDamage ?? meta.baseDamage,
           rpm: w.rpm ?? meta.rpm,

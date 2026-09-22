@@ -1185,7 +1185,12 @@ function renderWeaponsTable() {
   // --- Filter by Category & Search Query ---
   let filtered = weapons;
   if (selectedCategory !== 'all') {
-    filtered = filtered.filter((w) => (w.category ?? '').toLowerCase().includes(selectedCategory.toLowerCase()));
+    filtered = filtered.filter((w) => {
+      const cat = (w.category ?? '').toLowerCase();
+      const sel = selectedCategory.toLowerCase();
+      if ((sel === 'throwable' || sel === 'throwables') && (cat.includes('throwable') || cat.includes('explosive'))) return true;
+      return cat.includes(sel);
+    });
   }
   if (searchFilterQuery.trim()) {
     const q = searchFilterQuery.trim().toLowerCase();
