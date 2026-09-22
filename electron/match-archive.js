@@ -52,6 +52,7 @@ const WEAPON_META = {
   13: { label: 'Legros', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/b/b9/F1_Legros.png' },
   14: { label: 'TUB-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/TUB-12', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/b/bf/Tub.png' },
   15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/47/Autoshotgun.png' },
+  16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
   17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/f/fd/KR82U.png' },
   // Same baseDamage/rpm as Gruber-5 (4), kept in sync with stats.js's
   // weaponMeta — see that file's comment for how this was identified from
@@ -399,13 +400,47 @@ class MatchArchive {
         byCode.set(w.damageSource, existing);
       }
     }
+
+    // Populate all known weapons from WEAPON_META so unused weapons are included
+    if (this.data.matches.length > 0) {
+      for (const [codeStr, meta] of Object.entries(WEAPON_META)) {
+        const code = Number(codeStr);
+        if (!byCode.has(code)) {
+          byCode.set(code, {
+            damageSource: code,
+            label: meta.label,
+            category: meta.category,
+            fireType: meta.fireType,
+            baseDamage: meta.baseDamage,
+            rpm: meta.rpm,
+            wikiUrl: meta.wikiUrl ?? `https://dueprocess.fandom.com/wiki/${encodeURIComponent(meta.label)}`,
+            imageUrl: meta.imageUrl ?? null,
+            kills: 0,
+            deaths: 0,
+            hits: 0,
+            headshots: null,
+            roundsUsed: 0,
+            unused: true,
+          });
+        }
+      }
+    }
+
     return [...byCode.values()]
-      .map((w) => ({
-        ...w,
-        hsPercent: w.headshots !== null && w.hits > 0 ? Math.round((w.headshots / w.hits) * 100) : null,
-        killsPerRound: w.roundsUsed > 0 ? round2(w.kills / w.roundsUsed) : 0,
-      }))
-      .sort((a, b) => b.kills - a.kills);
+      .map((w) => {
+        const unused = Boolean(w.unused || ((w.roundsUsed || 0) === 0 && (w.hits || 0) === 0 && (w.kills || 0) === 0));
+        return {
+          ...w,
+          unused,
+          hsPercent: !unused && w.headshots !== null && w.hits > 0 ? Math.round((w.headshots / w.hits) * 100) : null,
+          killsPerRound: !unused && w.roundsUsed > 0 ? round2(w.kills / w.roundsUsed) : 0,
+        };
+      })
+      .sort((a, b) => {
+        if (a.unused !== b.unused) return a.unused ? 1 : -1;
+        if (a.unused) return a.label.localeCompare(b.label);
+        return b.kills - a.kills;
+      });
   }
 
   /** Lifetime kills/damage aggregated by weapon, most kills first (local player's weapons only). */

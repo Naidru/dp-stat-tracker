@@ -173,6 +173,30 @@
   table.sortable thead th[data-sort].sort-active { color: var(--accent); }
   table.sortable thead th[data-sort] .sort-arrow { display: inline-block; margin-left: 4px; opacity: 0.7; }
   #weaponsBody td.no-data { color: var(--text-faint); }
+  #weaponsBody tr.weapon-row--unused {
+    opacity: 0.38;
+    filter: saturate(0.7);
+    transition: opacity 0.15s ease, filter 0.15s ease;
+  }
+  #weaponsBody tr.weapon-row--unused:hover {
+    opacity: 0.85;
+    filter: saturate(1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .weapon-unused-pill {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 0 4px;
+    border-radius: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+    color: var(--text-muted);
+    border: 1px solid var(--border-soft);
+    background: rgba(255, 255, 255, 0.03);
+  }
 
   /* Weapons tab redesign styles */
   .weapons-summary-grid {

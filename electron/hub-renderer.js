@@ -1199,6 +1199,12 @@ function renderWeaponsTable() {
 
   // --- Sort Weapons ---
   const sorted = [...filtered].sort((a, b) => {
+    if (a.unused !== b.unused) {
+      return a.unused ? 1 : -1;
+    }
+    if (a.unused) {
+      return a.label.localeCompare(b.label);
+    }
     const av = a[weaponSortKey];
     const bv = b[weaponSortKey];
     if (av === null && bv === null) return 0;
@@ -1218,9 +1224,20 @@ function renderWeaponsTable() {
   } else {
     for (const w of sorted) {
       const tr = document.createElement('tr');
-      const hs = w.headshots === null ? '<span class="no-data">—</span>' : w.headshots;
-      const hsPct = w.hsPercent === null ? '<span class="no-data">—</span>' : `<span class="hs-badge">${w.hsPercent}%</span>`;
-      const killsPct = Math.round((w.kills / maxKills) * 100);
+      if (w.unused) {
+        tr.className = 'weapon-row--unused';
+      }
+      const hs = w.headshots === null || w.unused ? '<span class="no-data">—</span>' : w.headshots;
+      const hsPct = w.hsPercent === null || w.unused ? '<span class="no-data">—</span>' : `<span class="hs-badge">${w.hsPercent}%</span>`;
+      const killsPct = w.unused ? 0 : Math.round((w.kills / maxKills) * 100);
+      const kprDisplay = w.unused ? '<span class="no-data">—</span>' : w.killsPerRound.toFixed(2);
+      const unusedBadge = w.unused ? '<span class="weapon-unused-pill">UNUSED</span>' : '';
+      const killsDisplay = w.unused
+        ? `<span class="no-data" style="font-family:var(--font-display);font-size:15px;color:var(--text-faint)">—</span>`
+        : `<span style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--accent)">${w.kills}</span>`;
+      const deathsDisplay = w.unused && w.deaths === 0
+        ? '<span class="no-data">—</span>'
+        : `<span style="font-family:var(--font-display);font-size:16px;font-weight:600;color:${w.deaths > 0 ? 'var(--loss)' : 'var(--text-muted)'}">${w.deaths}</span>`;
 
       const specsList = [];
       if (w.fireType && w.fireType !== 'Unknown') specsList.push(w.fireType);
@@ -1239,7 +1256,10 @@ function renderWeaponsTable() {
               ${imgHtml}
             </a>
             <div class="weapon-cell">
-              <span class="weapon-cat">${escapeHtml((w.category ?? 'WEAPON').toUpperCase())}</span>
+              <div>
+                <span class="weapon-cat">${escapeHtml((w.category ?? 'WEAPON').toUpperCase())}</span>
+                ${unusedBadge}
+              </div>
               <a href="${wikiUrl}" class="weapon-wiki-btn" data-wikiurl="${wikiUrl}" title="View ${escapeHtml(w.label)} on Fandom Wiki ↗" style="color:var(--text-bright);text-decoration:none">
                 <span class="weapon-title" style="color:var(--text-bright);font-weight:700">${escapeHtml(w.label)} <span style="font-size:11px;color:var(--accent);margin-left:2px">↗</span></span>
               </a>
@@ -1249,14 +1269,14 @@ function renderWeaponsTable() {
         </td>
         <td style="text-align:center">
           <div class="kills-col">
-            <span style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--accent)">${w.kills}</span>
+            ${killsDisplay}
             <div class="kills-bar"><span style="width:${killsPct}%"></span></div>
           </div>
         </td>
-        <td style="text-align:center;font-family:var(--font-display);font-size:16px;font-weight:600;color:${w.deaths > 0 ? 'var(--loss)' : 'var(--text-muted)'}">${w.deaths}</td>
+        <td style="text-align:center">${deathsDisplay}</td>
         <td style="text-align:center;font-family:var(--font-display);font-size:15px">${hs}</td>
         <td style="text-align:center">${hsPct}</td>
-        <td style="text-align:center;font-family:var(--font-display);font-size:15px;font-weight:600">${w.killsPerRound.toFixed(2)}</td>
+        <td style="text-align:center;font-family:var(--font-display);font-size:15px;font-weight:600">${kprDisplay}</td>
       `;
 
       tr.querySelectorAll('.weapon-wiki-btn').forEach((btn) => {
