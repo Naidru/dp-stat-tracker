@@ -1330,22 +1330,24 @@ function renderMatchRows(tbody, matches, opts = {}) {
     tr.addEventListener('click', () => openMatchDetail(m.matchId));
     tr.querySelector('.delete-match-btn').addEventListener('click', (e) => {
       e.stopPropagation(); // don't also trigger the row's open-detail click
-      confirmAndDeleteMatch(m.matchId, m.mapLabel);
+      const matchup = m.matchup || `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`;
+      confirmAndDeleteMatch(m.matchId, matchup);
     });
     tbody.appendChild(tr);
   }
 }
 
-async function confirmAndDeleteMatch(matchId, mapLabel) {
-  const label = mapLabel ? ` on ${mapLabel}` : '';
+async function confirmAndDeleteMatch(matchId, matchup) {
+  const label = matchup ? ` (${matchup})` : '';
   const ok = window.confirm(`Delete this match${label}? This can't be undone.`);
-  if (!ok) return;
+  if (!ok) return false;
   await window.hubAPI.deleteMatch(matchId);
   // No manual re-render call needed for Home/stat data: main.js's delete
   // handler pushes a fresh hub:update (totals/lists re-derived from the
   // archive) on success, and render() above re-fetches whichever history
   // view is currently open. If the deleted row was IN a history view,
   // that re-fetch picks up the removal too.
+  return true;
 }
 
 // ---------------------------------------------------------------------
@@ -1361,6 +1363,7 @@ const matchDetailBackdrop = document.getElementById('matchDetailBackdrop');
 const matchDetailTeams = document.getElementById('matchDetailTeams');
 const matchDetailMeta = document.getElementById('matchDetailMeta');
 let matchDetailCurrentId = null;
+let matchDetailCurrentMatchup = null;
 
 const TILESET_ICONS = {
   factory: 'assets/tilesets/factory.webp',
@@ -1383,6 +1386,7 @@ async function openMatchDetail(matchId) {
   if (!match) return; // shouldn't happen (row came from an archive itself), but don't render a broken panel if it does
 
   matchDetailCurrentId = matchId;
+  matchDetailCurrentMatchup = match.matchup || `${match.team0Name || 'Blue Team'} vs ${match.team1Name || 'Orange Team'}`;
 
   const matchDetailMapContainer = document.getElementById('matchDetailMapContainer');
   if (matchDetailMapContainer) {
@@ -1569,6 +1573,7 @@ async function openMatchDetail(matchId) {
 function closeMatchDetail() {
   matchDetailBackdrop.hidden = true;
   matchDetailCurrentId = null;
+  matchDetailCurrentMatchup = null;
 }
 
 // Single delegated listener on the backdrop — never on #matchDetailClose
@@ -1579,9 +1584,8 @@ function closeMatchDetail() {
 matchDetailBackdrop.addEventListener('click', async (e) => {
   if (e.target.closest('#matchDetailDelete')) {
     if (!matchDetailCurrentId) return;
-    const ok = window.confirm("Delete this match? This can't be undone.");
-    if (ok) {
-      await window.hubAPI.deleteMatch(matchDetailCurrentId);
+    const deleted = await confirmAndDeleteMatch(matchDetailCurrentId, matchDetailCurrentMatchup);
+    if (deleted) {
       closeMatchDetail();
     }
     return;
