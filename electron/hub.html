@@ -593,30 +593,30 @@
 
   /* Player Full Profile Modal Styles */
   #playerFullProfileCard {
-    width: 840px;
+    width: 920px;
     max-width: 95vw;
     max-height: 90vh;
-    padding: 24px;
+    padding: 28px 32px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     box-sizing: border-box;
   }
   .pfp-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 16px;
+    gap: 20px;
     flex-shrink: 0;
   }
   .pfp-identity {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
   }
   .pfp-avatar {
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
     border-radius: 6px;
     border: 1px solid var(--accent);
     object-fit: cover;
@@ -678,26 +678,26 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     padding-right: 4px;
   }
   .pfp-stat-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
+    gap: 12px;
     flex-shrink: 0;
   }
   .pfp-section {
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
     flex-shrink: 0;
   }
   .pfp-combat-grid {
     display: grid;
     grid-template-columns: 1.2fr 1fr;
-    gap: 20px;
+    gap: 24px;
     align-items: center;
   }
   .pfp-combat-block {
@@ -715,7 +715,7 @@
   .pfp-adr-split-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
   .pfp-adr-bar-wrapper {
     display: flex;
@@ -736,12 +736,12 @@
     border-radius: 2px;
   }
   .pfp-side-tag--atk {
-    color: var(--loss-vivid);
-    background: rgba(var(--loss-vivid-rgb), 0.12);
-  }
-  .pfp-side-tag--def {
     color: var(--accent);
     background: rgba(var(--accent-rgb), 0.12);
+  }
+  .pfp-side-tag--def {
+    color: var(--loss-vivid);
+    background: rgba(var(--loss-vivid-rgb), 0.12);
   }
   .pfp-side-val {
     font-weight: 700;
@@ -749,32 +749,32 @@
     color: var(--text-bright);
   }
   .pfp-bar-track {
-    height: 8px;
+    height: 10px;
     background: rgba(var(--tint-rgb), 0.08);
-    border-radius: 4px;
+    border-radius: 5px;
     overflow: hidden;
     position: relative;
   }
   .pfp-bar-fill {
     height: 100%;
-    border-radius: 4px;
+    border-radius: 5px;
     transition: width 0.3s ease;
   }
   .pfp-bar-fill--atk {
-    background: var(--loss-vivid);
+    background: var(--accent);
   }
   .pfp-bar-fill--def {
-    background: var(--accent);
+    background: var(--loss-vivid);
   }
   .pfp-combat-metrics-list {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 12px;
   }
   .pfp-metric-item {
     background: rgba(var(--tint-rgb), 0.03);
     border: 1px solid var(--border-soft);
-    padding: 10px;
+    padding: 14px;
     border-radius: 4px;
   }
   .pfp-metric-val {
@@ -782,7 +782,7 @@
     font-size: 22px;
     font-weight: 700;
     color: var(--text-bright);
-    margin: 2px 0;
+    margin: 4px 0;
   }
   .pfp-table-wrapper table {
     width: 100%;
@@ -1564,7 +1564,7 @@
         <div class="panel pfp-section">
           <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
           <div class="kicker">Weapon Arsenal Breakdown</div>
-          <div class="pfp-table-wrapper" style="max-height:220px;overflow-y:auto">
+          <div class="pfp-table-wrapper" style="max-height:260px;overflow-y:auto">
             <table class="rows" id="pfpWeaponsTable">
               <thead>
                 <tr>
@@ -1588,7 +1588,7 @@
             <div class="kicker" id="pfpHistoryTitle">Mutual Match History</div>
             <div class="stat-sub" id="pfpHistoryCount">0 matches</div>
           </div>
-          <div class="pfp-table-wrapper" style="max-height:260px;overflow-y:auto">
+          <div class="pfp-table-wrapper" style="max-height:300px;overflow-y:auto">
             <table class="rows" id="pfpMatchesTable">
               <thead>
                 <tr>
