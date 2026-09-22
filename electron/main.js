@@ -783,8 +783,13 @@ ipcMain.handle('settings:set-overlay-hotkey', (_event, newHotkey) => {
 
   const trimmed = newHotkey.trim();
   const current = settingsStore.get('overlayHotkey');
+  const mapHotkey = settingsStore.get('mapCaptureHotkey');
   if (trimmed === current) {
     return { success: true, hotkey: current };
+  }
+
+  if (mapHotkey && trimmed.toLowerCase() === mapHotkey.toLowerCase()) {
+    return { success: false, error: 'This key combination is already used for the Map Capture keybind.' };
   }
 
   // Unregister existing hotkey
@@ -869,6 +874,112 @@ ipcMain.handle('settings:reset-overlay-hotkey', (_event) => {
   }
   if (hubWindow && !hubWindow.isDestroyed()) {
     hubWindow.webContents.send('settings:overlay-hotkey-changed', defaultHotkey);
+  }
+
+  return { success: true, hotkey: defaultHotkey };
+});
+
+ipcMain.handle('settings:get-map-capture-hotkey', () => {
+  return {
+    hotkey: settingsStore ? settingsStore.get('mapCaptureHotkey') : config.MAP_SCREENSHOT_HOTKEY,
+    defaultHotkey: settingsStore ? settingsStore.getDefault('mapCaptureHotkey') : config.MAP_SCREENSHOT_HOTKEY,
+  };
+});
+
+ipcMain.handle('settings:set-map-capture-hotkey', (_event, newHotkey) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  if (!newHotkey || typeof newHotkey !== 'string' || !newHotkey.trim()) {
+    return { success: false, error: 'Invalid key combination.' };
+  }
+
+  const trimmed = newHotkey.trim();
+  const current = settingsStore.get('mapCaptureHotkey');
+  const overlayHotkey = settingsStore.get('overlayHotkey');
+
+  if (trimmed === current) {
+    return { success: true, hotkey: current };
+  }
+
+  if (overlayHotkey && trimmed.toLowerCase() === overlayHotkey.toLowerCase()) {
+    return { success: false, error: 'This key combination is already used for the Overlay keybind.' };
+  }
+
+  // Unregister existing hotkey
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  // Attempt registration of new hotkey
+  let registered = false;
+  try {
+    registered = globalShortcut.register(trimmed, captureMapScreenshot);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    // Roll back to previous working hotkey
+    try {
+      globalShortcut.register(current, captureMapScreenshot);
+    } catch {}
+    return {
+      success: false,
+      error: `Could not register '${trimmed}'. The key combination may be reserved by Windows or another application.`,
+      hotkey: current,
+    };
+  }
+
+  // Persist new hotkey
+  settingsStore.set('mapCaptureHotkey', trimmed);
+  console.log(`Global map capture hotkey updated from ${current} to: ${trimmed}`);
+
+  // Broadcast to hub window
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:map-capture-hotkey-changed', trimmed);
+  }
+
+  return { success: true, hotkey: trimmed };
+});
+
+ipcMain.handle('settings:reset-map-capture-hotkey', (_event) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  const defaultHotkey = settingsStore.getDefault('mapCaptureHotkey');
+  const current = settingsStore.get('mapCaptureHotkey');
+  if (defaultHotkey === current) {
+    return { success: true, hotkey: current };
+  }
+
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  let registered = false;
+  try {
+    registered = globalShortcut.register(defaultHotkey, captureMapScreenshot);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    try {
+      globalShortcut.register(current, captureMapScreenshot);
+    } catch {}
+    return {
+      success: false,
+      error: `Failed to restore default hotkey '${defaultHotkey}'.`,
+      hotkey: current,
+    };
+  }
+
+  settingsStore.set('mapCaptureHotkey', defaultHotkey);
+  console.log(`Global map capture hotkey reset to default: ${defaultHotkey}`);
+
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:map-capture-hotkey-changed', defaultHotkey);
   }
 
   return { success: true, hotkey: defaultHotkey };
@@ -1105,11 +1216,12 @@ async function main() {
     console.warn(`FAILED to register global overlay hotkey ${activeOverlayHotkey} — it may be in use by another app.`);
   }
 
-  const mapHotkeyRegistered = globalShortcut.register(config.MAP_SCREENSHOT_HOTKEY, captureMapScreenshot);
+  const activeMapHotkey = settingsStore ? settingsStore.get('mapCaptureHotkey') : config.MAP_SCREENSHOT_HOTKEY;
+  const mapHotkeyRegistered = globalShortcut.register(activeMapHotkey, captureMapScreenshot);
   if (mapHotkeyRegistered) {
-    console.log(`Successfully registered map screenshot hotkey: ${config.MAP_SCREENSHOT_HOTKEY}`);
+    console.log(`Successfully registered map screenshot hotkey: ${activeMapHotkey}`);
   } else {
-    console.warn(`FAILED to register map screenshot hotkey ${config.MAP_SCREENSHOT_HOTKEY} — it may be in use by another app.`);
+    console.warn(`FAILED to register map screenshot hotkey ${activeMapHotkey} — it may be in use by another app.`);
   }
 
   startGameDetection();

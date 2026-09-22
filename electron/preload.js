@@ -44,6 +44,12 @@ contextBridge.exposeInMainWorld('settingsAPI', {
   onOverlayHotkeyChanged: (callback) => {
     ipcRenderer.on('settings:overlay-hotkey-changed', (_event, hotkey) => callback(hotkey));
   },
+  getMapCaptureHotkey: () => ipcRenderer.invoke('settings:get-map-capture-hotkey'),
+  setMapCaptureHotkey: (hotkey) => ipcRenderer.invoke('settings:set-map-capture-hotkey', hotkey),
+  resetMapCaptureHotkey: () => ipcRenderer.invoke('settings:reset-map-capture-hotkey'),
+  onMapCaptureHotkeyChanged: (callback) => {
+    ipcRenderer.on('settings:map-capture-hotkey-changed', (_event, hotkey) => callback(hotkey));
+  },
 });
 
 contextBridge.exposeInMainWorld('hubAPI', {

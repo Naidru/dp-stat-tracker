@@ -50,16 +50,23 @@ window.themeAPI.onChange((theme) => {
 });
 
 // ---------------------------------------------------------------------
-// Overlay Keybind setting (recorder, persistence & status feedback)
+// Keybind Settings (Overlay & Map Capture: recorder, persistence & status feedback)
 // ---------------------------------------------------------------------
 
 const overlayHotkeyBtn = document.getElementById('overlayHotkeyBtn');
 const overlayHotkeyResetBtn = document.getElementById('overlayHotkeyResetBtn');
 const overlayHotkeyStatus = document.getElementById('overlayHotkeyStatus');
 
-let isRecordingHotkey = false;
+const mapCaptureHotkeyBtn = document.getElementById('mapCaptureHotkeyBtn');
+const mapCaptureHotkeyResetBtn = document.getElementById('mapCaptureHotkeyResetBtn');
+const mapCaptureHotkeyStatus = document.getElementById('mapCaptureHotkeyStatus');
+
+let recordingTarget = null; // 'overlay' | 'mapCapture' | null
 let currentOverlayHotkey = 'Control+Shift+Y';
-let hotkeyStatusTimer = null;
+let currentMapCaptureHotkey = 'Control+Shift+M';
+
+let overlayStatusTimer = null;
+let mapCaptureStatusTimer = null;
 
 function formatHotkeyDisplay(hk) {
   if (!hk) return 'None';
@@ -69,30 +76,57 @@ function formatHotkeyDisplay(hk) {
     .replace(/\+/g, ' + ');
 }
 
-function showHotkeyStatus(message, isError = false) {
-  if (!overlayHotkeyStatus) return;
-  clearTimeout(hotkeyStatusTimer);
-  overlayHotkeyStatus.textContent = message;
-  overlayHotkeyStatus.className = 'keybind-status' + (isError ? ' keybind-status--error' : ' keybind-status--success');
-  overlayHotkeyStatus.hidden = false;
-  hotkeyStatusTimer = setTimeout(() => {
-    overlayHotkeyStatus.hidden = true;
+function showHotkeyStatus(target, message, isError = false) {
+  const statusEl = target === 'mapCapture' ? mapCaptureHotkeyStatus : overlayHotkeyStatus;
+  if (!statusEl) return;
+  if (target === 'mapCapture') {
+    clearTimeout(mapCaptureStatusTimer);
+  } else {
+    clearTimeout(overlayStatusTimer);
+  }
+  statusEl.textContent = message;
+  statusEl.className = 'keybind-status' + (isError ? ' keybind-status--error' : ' keybind-status--success');
+  statusEl.hidden = false;
+  const timer = setTimeout(() => {
+    statusEl.hidden = true;
   }, isError ? 5000 : 3000);
+  if (target === 'mapCapture') {
+    mapCaptureStatusTimer = timer;
+  } else {
+    overlayStatusTimer = timer;
+  }
 }
 
-function updateHotkeyButtonDisplay(hk) {
-  if (overlayHotkeyBtn) {
-    overlayHotkeyBtn.textContent = formatHotkeyDisplay(hk);
+function updateHotkeyButtonDisplay(target, hk) {
+  const btn = target === 'mapCapture' ? mapCaptureHotkeyBtn : overlayHotkeyBtn;
+  if (btn) {
+    btn.textContent = formatHotkeyDisplay(hk);
   }
 }
 
 function cancelHotkeyRecording() {
-  if (!isRecordingHotkey) return;
-  isRecordingHotkey = false;
-  if (overlayHotkeyBtn) {
+  if (!recordingTarget) return;
+  const prevTarget = recordingTarget;
+  recordingTarget = null;
+  if (prevTarget === 'overlay' && overlayHotkeyBtn) {
     overlayHotkeyBtn.classList.remove('recording');
-    updateHotkeyButtonDisplay(currentOverlayHotkey);
+    updateHotkeyButtonDisplay('overlay', currentOverlayHotkey);
+  } else if (prevTarget === 'mapCapture' && mapCaptureHotkeyBtn) {
+    mapCaptureHotkeyBtn.classList.remove('recording');
+    updateHotkeyButtonDisplay('mapCapture', currentMapCaptureHotkey);
   }
+}
+
+function startHotkeyRecording(target) {
+  cancelHotkeyRecording();
+  recordingTarget = target;
+  const btn = target === 'mapCapture' ? mapCaptureHotkeyBtn : overlayHotkeyBtn;
+  const statusEl = target === 'mapCapture' ? mapCaptureHotkeyStatus : overlayHotkeyStatus;
+  if (btn) {
+    btn.classList.add('recording');
+    btn.textContent = 'Press keys...';
+  }
+  if (statusEl) statusEl.hidden = true;
 }
 
 // Convert a DOM KeyboardEvent into an Electron Accelerator string
@@ -154,97 +188,141 @@ function domEventToAccelerator(e) {
   return { accelerator: [...modifiers, key].join('+') };
 }
 
-if (overlayHotkeyBtn) {
-  overlayHotkeyBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (isRecordingHotkey) {
-      cancelHotkeyRecording();
-      return;
+// Button click handlers
+overlayHotkeyBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (recordingTarget === 'overlay') {
+    cancelHotkeyRecording();
+  } else {
+    startHotkeyRecording('overlay');
+  }
+});
+
+overlayHotkeyResetBtn?.addEventListener('click', async () => {
+  cancelHotkeyRecording();
+  if (window.settingsAPI?.resetOverlayHotkey) {
+    const resp = await window.settingsAPI.resetOverlayHotkey();
+    if (resp && resp.success) {
+      currentOverlayHotkey = resp.hotkey;
+      updateHotkeyButtonDisplay('overlay', resp.hotkey);
+      showHotkeyStatus('overlay', 'Reset to default (Ctrl+Shift+Y)');
+    } else {
+      showHotkeyStatus('overlay', resp?.error || 'Failed to reset keybind.', true);
     }
-    isRecordingHotkey = true;
-    overlayHotkeyBtn.classList.add('recording');
-    overlayHotkeyBtn.textContent = 'Press keys...';
-    if (overlayHotkeyStatus) overlayHotkeyStatus.hidden = true;
-  });
+  }
+});
 
-  window.addEventListener('keydown', async (e) => {
-    if (!isRecordingHotkey) return;
+mapCaptureHotkeyBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (recordingTarget === 'mapCapture') {
+    cancelHotkeyRecording();
+  } else {
+    startHotkeyRecording('mapCapture');
+  }
+});
 
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (e.key === 'Escape') {
-      cancelHotkeyRecording();
-      showHotkeyStatus('Keybind change canceled.');
-      return;
+mapCaptureHotkeyResetBtn?.addEventListener('click', async () => {
+  cancelHotkeyRecording();
+  if (window.settingsAPI?.resetMapCaptureHotkey) {
+    const resp = await window.settingsAPI.resetMapCaptureHotkey();
+    if (resp && resp.success) {
+      currentMapCaptureHotkey = resp.hotkey;
+      updateHotkeyButtonDisplay('mapCapture', resp.hotkey);
+      showHotkeyStatus('mapCapture', 'Reset to default (Ctrl+Shift+M)');
+    } else {
+      showHotkeyStatus('mapCapture', resp?.error || 'Failed to reset keybind.', true);
     }
+  }
+});
 
-    const result = domEventToAccelerator(e);
-    if (!result) {
-      // Just modifier pressed — preview held modifiers
-      const held = [];
-      if (e.ctrlKey) held.push('Ctrl');
-      if (e.altKey) held.push('Alt');
-      if (e.shiftKey) held.push('Shift');
-      if (e.metaKey) held.push('Win');
-      overlayHotkeyBtn.textContent = held.length > 0 ? `${held.join(' + ')} + ...` : 'Press keys...';
-      return;
-    }
+// Window keydown listener for recording either hotkey
+window.addEventListener('keydown', async (e) => {
+  if (!recordingTarget) return;
 
-    if (result.error) {
-      showHotkeyStatus(result.error, true);
-      return;
-    }
+  e.preventDefault();
+  e.stopPropagation();
 
-    const newAccelerator = result.accelerator;
-    isRecordingHotkey = false;
-    overlayHotkeyBtn.classList.remove('recording');
-    overlayHotkeyBtn.textContent = 'Applying...';
+  const target = recordingTarget;
+  const btn = target === 'mapCapture' ? mapCaptureHotkeyBtn : overlayHotkeyBtn;
 
+  if (e.key === 'Escape') {
+    cancelHotkeyRecording();
+    showHotkeyStatus(target, 'Keybind change canceled.');
+    return;
+  }
+
+  const result = domEventToAccelerator(e);
+  if (!result) {
+    // Just modifier pressed — preview held modifiers
+    const held = [];
+    if (e.ctrlKey) held.push('Ctrl');
+    if (e.altKey) held.push('Alt');
+    if (e.shiftKey) held.push('Shift');
+    if (e.metaKey) held.push('Win');
+    if (btn) btn.textContent = held.length > 0 ? `${held.join(' + ')} + ...` : 'Press keys...';
+    return;
+  }
+
+  if (result.error) {
+    showHotkeyStatus(target, result.error, true);
+    return;
+  }
+
+  const newAccelerator = result.accelerator;
+  recordingTarget = null;
+  if (btn) {
+    btn.classList.remove('recording');
+    btn.textContent = 'Applying...';
+  }
+
+  if (target === 'overlay') {
     if (window.settingsAPI?.setOverlayHotkey) {
       const resp = await window.settingsAPI.setOverlayHotkey(newAccelerator);
       if (resp && resp.success) {
         currentOverlayHotkey = resp.hotkey;
-        updateHotkeyButtonDisplay(resp.hotkey);
-        showHotkeyStatus('Keybind updated successfully!');
+        updateHotkeyButtonDisplay('overlay', resp.hotkey);
+        showHotkeyStatus('overlay', 'Keybind updated successfully!');
       } else {
-        updateHotkeyButtonDisplay(currentOverlayHotkey);
-        showHotkeyStatus(resp?.error || 'Failed to register keybind.', true);
+        updateHotkeyButtonDisplay('overlay', currentOverlayHotkey);
+        showHotkeyStatus('overlay', resp?.error || 'Failed to register keybind.', true);
       }
     } else {
-      updateHotkeyButtonDisplay(currentOverlayHotkey);
+      updateHotkeyButtonDisplay('overlay', currentOverlayHotkey);
     }
-  });
+  } else if (target === 'mapCapture') {
+    if (window.settingsAPI?.setMapCaptureHotkey) {
+      const resp = await window.settingsAPI.setMapCaptureHotkey(newAccelerator);
+      if (resp && resp.success) {
+        currentMapCaptureHotkey = resp.hotkey;
+        updateHotkeyButtonDisplay('mapCapture', resp.hotkey);
+        showHotkeyStatus('mapCapture', 'Keybind updated successfully!');
+      } else {
+        updateHotkeyButtonDisplay('mapCapture', currentMapCaptureHotkey);
+        showHotkeyStatus('mapCapture', resp?.error || 'Failed to register keybind.', true);
+      }
+    } else {
+      updateHotkeyButtonDisplay('mapCapture', currentMapCaptureHotkey);
+    }
+  }
+});
 
-  window.addEventListener('click', (e) => {
-    if (isRecordingHotkey && !e.target.closest('#overlayHotkeyBtn')) {
+// Click outside cancel
+window.addEventListener('click', (e) => {
+  if (recordingTarget) {
+    const isOverlayBtn = e.target.closest('#overlayHotkeyBtn');
+    const isMapCaptureBtn = e.target.closest('#mapCaptureHotkeyBtn');
+    if (!isOverlayBtn && !isMapCaptureBtn) {
       cancelHotkeyRecording();
     }
-  });
-}
+  }
+});
 
-if (overlayHotkeyResetBtn) {
-  overlayHotkeyResetBtn.addEventListener('click', async () => {
-    cancelHotkeyRecording();
-    if (window.settingsAPI?.resetOverlayHotkey) {
-      const resp = await window.settingsAPI.resetOverlayHotkey();
-      if (resp && resp.success) {
-        currentOverlayHotkey = resp.hotkey;
-        updateHotkeyButtonDisplay(resp.hotkey);
-        showHotkeyStatus('Reset to default (Ctrl+Shift+Y)');
-      } else {
-        showHotkeyStatus(resp?.error || 'Failed to reset keybind.', true);
-      }
-    }
-  });
-}
-
-// Initialize hotkey on startup
+// Initialize hotkeys on startup
 if (window.settingsAPI?.getOverlayHotkey) {
   window.settingsAPI.getOverlayHotkey().then((res) => {
     if (res && res.hotkey) {
       currentOverlayHotkey = res.hotkey;
-      updateHotkeyButtonDisplay(res.hotkey);
+      updateHotkeyButtonDisplay('overlay', res.hotkey);
     }
   });
 }
@@ -252,7 +330,23 @@ if (window.settingsAPI?.getOverlayHotkey) {
 if (window.settingsAPI?.onOverlayHotkeyChanged) {
   window.settingsAPI.onOverlayHotkeyChanged((newHotkey) => {
     currentOverlayHotkey = newHotkey;
-    updateHotkeyButtonDisplay(newHotkey);
+    updateHotkeyButtonDisplay('overlay', newHotkey);
+  });
+}
+
+if (window.settingsAPI?.getMapCaptureHotkey) {
+  window.settingsAPI.getMapCaptureHotkey().then((res) => {
+    if (res && res.hotkey) {
+      currentMapCaptureHotkey = res.hotkey;
+      updateHotkeyButtonDisplay('mapCapture', res.hotkey);
+    }
+  });
+}
+
+if (window.settingsAPI?.onMapCaptureHotkeyChanged) {
+  window.settingsAPI.onMapCaptureHotkeyChanged((newHotkey) => {
+    currentMapCaptureHotkey = newHotkey;
+    updateHotkeyButtonDisplay('mapCapture', newHotkey);
   });
 }
 

@@ -9,6 +9,7 @@ const config = require('./config');
 
 const DEFAULT_SETTINGS = {
   overlayHotkey: config.OVERLAY_HOTKEY || 'Control+Shift+Y',
+  mapCaptureHotkey: config.MAP_SCREENSHOT_HOTKEY || 'Control+Shift+M',
 };
 
 class SettingsStore {
