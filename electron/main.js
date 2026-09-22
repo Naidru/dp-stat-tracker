@@ -21,6 +21,7 @@ const { findLocalAccountId } = require('./local-player');
 const { MapTracker } = require('./map-tracker');
 const { MapLayoutLibrary } = require('./map-layout-library');
 const { ThemeStore, DEFAULT_THEME } = require('./theme-store');
+const { SettingsStore } = require('./settings-store');
 const { recordCompletedMatch, scanLogFileForCompletedMatches } = require('./rescan');
 
 let overlayWindow = null;
@@ -29,6 +30,7 @@ let rankedArchive = null; // match-archive.json — ranked (7-X / 6-6) matches, 
 let otherArchive = null; // other-matches-archive.json — everything else (unranked, 2v2, Push, ...), never counted toward totals
 let mapLayoutLibrary = null;
 let themeStore = null; // theme.json — 'dark' | 'light', shared by both windows (see theme-store.js)
+let settingsStore = null; // settings.json — customizable keybinds & preferences
 // Holds the just-captured (not yet saved) picture between the hotkey press
 // and the user confirming it in the Hub's preview popup — see
 // captureMapScreenshot() and the hub:map-screenshot-confirm/retry handlers.
@@ -413,7 +415,7 @@ function sendOverlayUpdate(match, stats) {
     teams: stats?.teams ?? { 0: [], 1: [] },
     currentMap: mapTracker.peekCurrent().at(-1)?.label ?? null,
     localAccountId: localAccountId || rankedArchive.getLocalAccountId(),
-    overlayHotkey: config.OVERLAY_HOTKEY,
+    overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
   });
 }
 
@@ -543,6 +545,7 @@ function sendHubUpdate() {
     playedWithStats: playedWithStats,
     mapStats: rankedArchive.getMapStats(),
     liveMatch: getLiveMatchState(playedWithStats, lifetimeStats),
+    overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
   });
 }
 
@@ -664,6 +667,117 @@ ipcMain.on('theme:set', (_event, theme) => {
     if (win && !win.isDestroyed()) win.webContents.send('theme:changed', applied);
   }
 });
+
+// ---------------------------------------------------------------------
+// Keybind Settings (dynamic re-registration and persistence)
+// ---------------------------------------------------------------------
+
+ipcMain.handle('settings:get-overlay-hotkey', () => {
+  return {
+    hotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
+    defaultHotkey: settingsStore ? settingsStore.getDefault('overlayHotkey') : config.OVERLAY_HOTKEY,
+  };
+});
+
+ipcMain.handle('settings:set-overlay-hotkey', (_event, newHotkey) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  if (!newHotkey || typeof newHotkey !== 'string' || !newHotkey.trim()) {
+    return { success: false, error: 'Invalid key combination.' };
+  }
+
+  const trimmed = newHotkey.trim();
+  const current = settingsStore.get('overlayHotkey');
+  if (trimmed === current) {
+    return { success: true, hotkey: current };
+  }
+
+  // Unregister existing hotkey
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  // Attempt registration of new hotkey
+  let registered = false;
+  try {
+    registered = globalShortcut.register(trimmed, toggleOverlayManually);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    // Roll back to previous working hotkey
+    try {
+      globalShortcut.register(current, toggleOverlayManually);
+    } catch {}
+    return {
+      success: false,
+      error: `Could not register '${trimmed}'. The key combination may be reserved by Windows or another application.`,
+      hotkey: current,
+    };
+  }
+
+  // Persist new hotkey
+  settingsStore.set('overlayHotkey', trimmed);
+  console.log(`Global overlay hotkey updated from ${current} to: ${trimmed}`);
+
+  // Broadcast to both windows
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('overlay:update-hotkey', trimmed);
+  }
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:overlay-hotkey-changed', trimmed);
+  }
+
+  return { success: true, hotkey: trimmed };
+});
+
+ipcMain.handle('settings:reset-overlay-hotkey', (_event) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  const defaultHotkey = settingsStore.getDefault('overlayHotkey');
+  const current = settingsStore.get('overlayHotkey');
+  if (defaultHotkey === current) {
+    return { success: true, hotkey: current };
+  }
+
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  let registered = false;
+  try {
+    registered = globalShortcut.register(defaultHotkey, toggleOverlayManually);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    try {
+      globalShortcut.register(current, toggleOverlayManually);
+    } catch {}
+    return {
+      success: false,
+      error: `Failed to restore default hotkey '${defaultHotkey}'.`,
+      hotkey: current,
+    };
+  }
+
+  settingsStore.set('overlayHotkey', defaultHotkey);
+  console.log(`Global overlay hotkey reset to default: ${defaultHotkey}`);
+
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('overlay:update-hotkey', defaultHotkey);
+  }
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:overlay-hotkey-changed', defaultHotkey);
+  }
+
+  return { success: true, hotkey: defaultHotkey };
+});
+
 
 // Match-detail view (click-through from either list) reads straight from
 // whichever archive actually has it — works even after the source log has
@@ -848,6 +962,7 @@ async function main() {
   otherArchive = new MatchArchive(path.join(userDataDir, 'other-matches-archive.json'));
   mapLayoutLibrary = new MapLayoutLibrary(path.join(userDataDir, 'map-layouts'));
   themeStore = new ThemeStore(path.join(userDataDir, 'theme.json'));
+  settingsStore = new SettingsStore(path.join(userDataDir, 'settings.json'));
   localAccountId = rankedArchive.getLocalAccountId() || otherArchive.getLocalAccountId();
 
   createOverlayWindow();
@@ -860,11 +975,12 @@ async function main() {
   overlayWindow.webContents.once('did-finish-load', () => onParserUpdate());
   ensureHubWindowReady(() => sendHubUpdate());
 
-  const registered = globalShortcut.register(config.OVERLAY_HOTKEY, toggleOverlayManually);
+  const activeOverlayHotkey = settingsStore.get('overlayHotkey');
+  const registered = globalShortcut.register(activeOverlayHotkey, toggleOverlayManually);
   if (registered) {
-    console.log(`Successfully registered global overlay hotkey: ${config.OVERLAY_HOTKEY}`);
+    console.log(`Successfully registered global overlay hotkey: ${activeOverlayHotkey}`);
   } else {
-    console.warn(`FAILED to register global overlay hotkey ${config.OVERLAY_HOTKEY} — it may be in use by another app.`);
+    console.warn(`FAILED to register global overlay hotkey ${activeOverlayHotkey} — it may be in use by another app.`);
   }
 
   const mapHotkeyRegistered = globalShortcut.register(config.MAP_SCREENSHOT_HOTKEY, captureMapScreenshot);

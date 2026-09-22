@@ -28,10 +28,22 @@ contextBridge.exposeInMainWorld('overlayAPI', {
   onUpdate: (callback) => {
     ipcRenderer.on('overlay:update', (_event, payload) => callback(payload));
   },
+  onHotkeyUpdated: (callback) => {
+    ipcRenderer.on('overlay:update-hotkey', (_event, hotkey) => callback(hotkey));
+  },
   // Fire-and-forget: main.js ensures/focuses the Hub window and pushes it
   // 'hub:show-player-detail' in response. See main.js's
   // 'overlay:open-player-detail' handler.
   openPlayerDetail: (accountId) => ipcRenderer.send('overlay:open-player-detail', accountId),
+});
+
+contextBridge.exposeInMainWorld('settingsAPI', {
+  getOverlayHotkey: () => ipcRenderer.invoke('settings:get-overlay-hotkey'),
+  setOverlayHotkey: (hotkey) => ipcRenderer.invoke('settings:set-overlay-hotkey', hotkey),
+  resetOverlayHotkey: () => ipcRenderer.invoke('settings:reset-overlay-hotkey'),
+  onOverlayHotkeyChanged: (callback) => {
+    ipcRenderer.on('settings:overlay-hotkey-changed', (_event, hotkey) => callback(hotkey));
+  },
 });
 
 contextBridge.exposeInMainWorld('hubAPI', {

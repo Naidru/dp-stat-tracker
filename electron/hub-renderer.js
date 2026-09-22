@@ -49,6 +49,213 @@ window.themeAPI.onChange((theme) => {
   applyThemeButtonState(theme);
 });
 
+// ---------------------------------------------------------------------
+// Overlay Keybind setting (recorder, persistence & status feedback)
+// ---------------------------------------------------------------------
+
+const overlayHotkeyBtn = document.getElementById('overlayHotkeyBtn');
+const overlayHotkeyResetBtn = document.getElementById('overlayHotkeyResetBtn');
+const overlayHotkeyStatus = document.getElementById('overlayHotkeyStatus');
+
+let isRecordingHotkey = false;
+let currentOverlayHotkey = 'Control+Shift+Y';
+let hotkeyStatusTimer = null;
+
+function formatHotkeyDisplay(hk) {
+  if (!hk) return 'None';
+  return hk
+    .replace(/CommandOrControl/gi, 'Ctrl')
+    .replace(/Control/gi, 'Ctrl')
+    .replace(/\+/g, ' + ');
+}
+
+function showHotkeyStatus(message, isError = false) {
+  if (!overlayHotkeyStatus) return;
+  clearTimeout(hotkeyStatusTimer);
+  overlayHotkeyStatus.textContent = message;
+  overlayHotkeyStatus.className = 'keybind-status' + (isError ? ' keybind-status--error' : ' keybind-status--success');
+  overlayHotkeyStatus.hidden = false;
+  hotkeyStatusTimer = setTimeout(() => {
+    overlayHotkeyStatus.hidden = true;
+  }, isError ? 5000 : 3000);
+}
+
+function updateHotkeyButtonDisplay(hk) {
+  if (overlayHotkeyBtn) {
+    overlayHotkeyBtn.textContent = formatHotkeyDisplay(hk);
+  }
+}
+
+function cancelHotkeyRecording() {
+  if (!isRecordingHotkey) return;
+  isRecordingHotkey = false;
+  if (overlayHotkeyBtn) {
+    overlayHotkeyBtn.classList.remove('recording');
+    updateHotkeyButtonDisplay(currentOverlayHotkey);
+  }
+}
+
+// Convert a DOM KeyboardEvent into an Electron Accelerator string
+function domEventToAccelerator(e) {
+  const modifiers = [];
+  if (e.ctrlKey) modifiers.push('Control');
+  if (e.altKey) modifiers.push('Alt');
+  if (e.shiftKey) modifiers.push('Shift');
+  if (e.metaKey) modifiers.push('Super');
+
+  let key = e.key;
+
+  // If only a modifier was pressed, preview without finalizing
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
+    return null;
+  }
+
+  // Normalize special keys
+  if (/^F\d{1,2}$/i.test(key)) {
+    key = key.toUpperCase();
+  } else if (key === ' ' || e.code === 'Space') {
+    key = 'Space';
+  } else if (key === '`' || e.code === 'Backquote') {
+    key = '`';
+  } else if (key === 'Escape') {
+    return 'Escape';
+  } else if (key.length === 1) {
+    key = key.toUpperCase();
+  } else {
+    // Map common navigation/editing keys
+    const nameMap = {
+      ArrowUp: 'Up',
+      ArrowDown: 'Down',
+      ArrowLeft: 'Left',
+      ArrowRight: 'Right',
+      Enter: 'Return',
+      Delete: 'Delete',
+      Insert: 'Insert',
+      Home: 'Home',
+      End: 'End',
+      PageUp: 'PageUp',
+      PageDown: 'PageDown',
+      Tab: 'Tab',
+      Backspace: 'Backspace',
+    };
+    if (nameMap[key]) {
+      key = nameMap[key];
+    } else {
+      return null;
+    }
+  }
+
+  // Guard: non-function keys (letters, numbers, etc.) must have at least one modifier
+  const isFunctionKey = /^F\d{1,2}$/i.test(key);
+  if (!isFunctionKey && modifiers.length === 0) {
+    return { error: 'Letter/number keys require at least one modifier (Ctrl, Alt, or Shift).' };
+  }
+
+  return { accelerator: [...modifiers, key].join('+') };
+}
+
+if (overlayHotkeyBtn) {
+  overlayHotkeyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isRecordingHotkey) {
+      cancelHotkeyRecording();
+      return;
+    }
+    isRecordingHotkey = true;
+    overlayHotkeyBtn.classList.add('recording');
+    overlayHotkeyBtn.textContent = 'Press keys...';
+    if (overlayHotkeyStatus) overlayHotkeyStatus.hidden = true;
+  });
+
+  window.addEventListener('keydown', async (e) => {
+    if (!isRecordingHotkey) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      cancelHotkeyRecording();
+      showHotkeyStatus('Keybind change canceled.');
+      return;
+    }
+
+    const result = domEventToAccelerator(e);
+    if (!result) {
+      // Just modifier pressed — preview held modifiers
+      const held = [];
+      if (e.ctrlKey) held.push('Ctrl');
+      if (e.altKey) held.push('Alt');
+      if (e.shiftKey) held.push('Shift');
+      if (e.metaKey) held.push('Win');
+      overlayHotkeyBtn.textContent = held.length > 0 ? `${held.join(' + ')} + ...` : 'Press keys...';
+      return;
+    }
+
+    if (result.error) {
+      showHotkeyStatus(result.error, true);
+      return;
+    }
+
+    const newAccelerator = result.accelerator;
+    isRecordingHotkey = false;
+    overlayHotkeyBtn.classList.remove('recording');
+    overlayHotkeyBtn.textContent = 'Applying...';
+
+    if (window.settingsAPI?.setOverlayHotkey) {
+      const resp = await window.settingsAPI.setOverlayHotkey(newAccelerator);
+      if (resp && resp.success) {
+        currentOverlayHotkey = resp.hotkey;
+        updateHotkeyButtonDisplay(resp.hotkey);
+        showHotkeyStatus('Keybind updated successfully!');
+      } else {
+        updateHotkeyButtonDisplay(currentOverlayHotkey);
+        showHotkeyStatus(resp?.error || 'Failed to register keybind.', true);
+      }
+    } else {
+      updateHotkeyButtonDisplay(currentOverlayHotkey);
+    }
+  });
+
+  window.addEventListener('click', (e) => {
+    if (isRecordingHotkey && !e.target.closest('#overlayHotkeyBtn')) {
+      cancelHotkeyRecording();
+    }
+  });
+}
+
+if (overlayHotkeyResetBtn) {
+  overlayHotkeyResetBtn.addEventListener('click', async () => {
+    cancelHotkeyRecording();
+    if (window.settingsAPI?.resetOverlayHotkey) {
+      const resp = await window.settingsAPI.resetOverlayHotkey();
+      if (resp && resp.success) {
+        currentOverlayHotkey = resp.hotkey;
+        updateHotkeyButtonDisplay(resp.hotkey);
+        showHotkeyStatus('Reset to default (Ctrl+Shift+Y)');
+      } else {
+        showHotkeyStatus(resp?.error || 'Failed to reset keybind.', true);
+      }
+    }
+  });
+}
+
+// Initialize hotkey on startup
+if (window.settingsAPI?.getOverlayHotkey) {
+  window.settingsAPI.getOverlayHotkey().then((res) => {
+    if (res && res.hotkey) {
+      currentOverlayHotkey = res.hotkey;
+      updateHotkeyButtonDisplay(res.hotkey);
+    }
+  });
+}
+
+if (window.settingsAPI?.onOverlayHotkeyChanged) {
+  window.settingsAPI.onOverlayHotkeyChanged((newHotkey) => {
+    currentOverlayHotkey = newHotkey;
+    updateHotkeyButtonDisplay(newHotkey);
+  });
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
