@@ -1604,7 +1604,7 @@ function renderWeaponsTable() {
       const specsStr = specsList.length > 0 ? specsList.join(' · ') : 'Standard Weapon';
       const wikiUrl = w.wikiUrl || `https://dueprocess.fandom.com/wiki/${encodeURIComponent(w.label)}`;
       const imgHtml = w.imageUrl
-        ? `<img src="${w.imageUrl}" alt="${escapeHtml(w.label)}" style="width:68px;height:38px;object-fit:contain;background:rgba(0,0,0,0.35);padding:2px;border:1px solid var(--border-soft);border-radius:3px">`
+        ? `<img src="${w.imageUrl}" alt="${escapeHtml(w.label)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" style="width:68px;height:38px;object-fit:contain;background:rgba(0,0,0,0.35);padding:2px;border:1px solid var(--border-soft);border-radius:3px"><div style="display:none;width:68px;height:38px;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);align-items:center;justify-content:center;color:var(--text-faint);font-size:10px;font-family:var(--font-display)">WPN</div>`
         : `<div style="width:68px;height:38px;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:10px;font-family:var(--font-display)">WPN</div>`;
 
       tr.innerHTML = `

@@ -36,7 +36,7 @@ const path = require('node:path');
 const MAX_MATCHES = 1000;
 
 const WEAPON_META = {
-  0: { label: 'Dawn', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'assets/weapons/dawn.png' },
+  0: { label: 'Cutting Torch', category: 'Equipment', fireType: 'Continuous', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Cutting_Torch', imageUrl: 'assets/weapons/cutting-torch.png' },
   1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'assets/weapons/ap-25.png' },
   2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'assets/weapons/blk-tar.png' },
   3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'assets/weapons/gat-9.png' },
@@ -54,6 +54,7 @@ const WEAPON_META = {
   15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'assets/weapons/auto-shotgun.png' },
   16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/short-shotgun.png' },
   17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'assets/weapons/kr82u.png' },
+  18: { label: 'Dawn', category: 'LMG', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/dawn.png' },
   // Same baseDamage/rpm as Gruber-5 (4), kept in sync with stats.js's
   // weaponMeta — see that file's comment for how this was identified from
   // log evidence (a suppressor doesn't change damage, only sound/recoil).
@@ -715,9 +716,9 @@ class MatchArchive {
           const key = w.damageSource ?? w.label;
           const cur = weaponMap.get(key) ?? {
             damageSource: w.damageSource,
-            label: w.label || WEAPON_META[w.damageSource]?.label || `Weapon #${w.damageSource}`,
-            category: w.category || WEAPON_META[w.damageSource]?.category || 'Unknown',
-            fireType: w.fireType || WEAPON_META[w.damageSource]?.fireType || 'Auto',
+            label: (w.damageSource !== undefined && WEAPON_META[w.damageSource]?.label) ? WEAPON_META[w.damageSource].label : (w.label || `Weapon #${w.damageSource}`),
+            category: (w.damageSource !== undefined && WEAPON_META[w.damageSource]?.category) ? WEAPON_META[w.damageSource].category : (w.category || 'Unknown'),
+            fireType: (w.damageSource !== undefined && WEAPON_META[w.damageSource]?.fireType) ? WEAPON_META[w.damageSource].fireType : (w.fireType || 'Auto'),
             kills: 0,
             deaths: 0,
             hits: 0,
