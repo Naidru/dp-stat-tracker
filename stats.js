@@ -11,11 +11,9 @@
 // --- Weapon name lookup -----------------------------------------------
 // `damageSource` in Stats::Kill / Stats::Damage is a numeric code with no
 // name in the log.
-// Code 0 is confirmed as the Attacker Cutting Torch (deals continuous ticks
-// of damage when cutting or used as an improvised melee/lethal tool).
-// Code 18 is the Defender Dawn LMG.
+// Code 0 is the Defender Dawn LMG.
 export const weaponNames = {
-  0: 'Cutting Torch',
+  0: 'Dawn',
   1: 'AP-25',
   2: 'BLK-TAR',
   3: 'GAT-9',
@@ -37,7 +35,6 @@ export const weaponNames = {
   // two independent sources agreeing, not a guess.
   16: 'Short Shotgun',
   17: 'KR82U',
-  18: 'Dawn',
   // Identified from log evidence, not the original community spreadsheet:
   // damage-per-hit landed exactly on Gruber-5's baseDamage (22) across two
   // separate players' full damage logs in the same match, and every hit
@@ -51,7 +48,7 @@ export const weaponNames = {
 
 // --- Full Weapon Metadata (from community spreadsheet & Fandom wiki) ---
 export const weaponMeta = {
-  0: { label: 'Cutting Torch', category: 'Equipment', fireType: 'Continuous', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Cutting_Torch', imageUrl: 'assets/weapons/cutting-torch.png' },
+  0: { label: 'Dawn', category: 'LMG', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'assets/weapons/dawn.png' },
   1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'assets/weapons/ap-25.png' },
   2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'assets/weapons/blk-tar.png' },
   3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'assets/weapons/gat-9.png' },
@@ -72,7 +69,6 @@ export const weaponMeta = {
   // the exact numbers the way there is for the other weapons here.
   16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/short-shotgun.png' },
   17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'assets/weapons/kr82u.png' },
-  18: { label: 'Dawn', category: 'LMG', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/dawn.png' },
   // Same baseDamage/rpm as Gruber-5 (4) — a suppressor doesn't change
   // damage, only sound/recoil. No dedicated wiki page exists yet, hence
   // the generic Weapons-page link and no imageUrl (same pattern as
