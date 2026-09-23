@@ -101,6 +101,8 @@ function createHubWindow() {
   // for a frame before hub.html finishes loading) doesn't flash the wrong
   // color under the light palette.
   const bg = themeStore && themeStore.get() === 'light' ? '#f3f5f7' : '#0d1013';
+  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+  const fallbackIconPath = path.join(__dirname, 'assets', 'icon.png');
   hubWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -108,6 +110,7 @@ function createHubWindow() {
     minHeight: 640,
     alwaysOnTop: false,
     title: 'Due Process Tracker',
+    icon: fs.existsSync(iconPath) ? iconPath : fallbackIconPath,
     backgroundColor: bg,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -28,7 +28,8 @@
     ],
     "asar": false,
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "electron/assets/icon.ico"
     }
   }
 }
