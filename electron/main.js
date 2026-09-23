@@ -81,7 +81,7 @@ let lastConfirmedGameRunning = true; // assume true until the first poll settles
 function createOverlayWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   const width = 1120;
-  const height = 420;
+  const height = 450;
 
   overlayWindow = new BrowserWindow({
     width,
@@ -520,6 +520,12 @@ function onParserUpdate() {
 
 function sendOverlayUpdate(match, stats) {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  let prediction = null;
+  if (stats?.teams && (stats.teams[0]?.length > 0 || stats.teams[1]?.length > 0) && rankedArchive) {
+    const playedWithStats = rankedArchive.getPlayedWithStats();
+    const lifetimeStats = rankedArchive.getLifetimeStats();
+    prediction = computeWinPrediction(stats.teams, playedWithStats, lifetimeStats);
+  }
   overlayWindow.webContents.send('overlay:update', {
     status: match?.status ?? 'waiting',
     finalScore: stats?.finalScore ?? null,
@@ -528,6 +534,7 @@ function sendOverlayUpdate(match, stats) {
     currentMap: mapTracker.peekCurrent().at(-1)?.label ?? null,
     localAccountId: localAccountId || rankedArchive.getLocalAccountId(),
     overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
+    prediction,
   });
 }
 
