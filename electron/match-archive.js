@@ -36,29 +36,32 @@ const path = require('node:path');
 const MAX_MATCHES = 1000;
 
 const WEAPON_META = {
-  0: { label: 'Dawn', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/a/a2/Dawn.png' },
-  1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/4d/AP-25-Logo.png' },
-  2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/d/dd/BLK-Tar.png' },
-  3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/e/e3/Gat-9.png' },
-  4: { label: 'Gruber-5', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gruber-5', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/a/a0/Gruber-5.png' },
-  5: { label: 'PK-57', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 410, wikiUrl: 'https://dueprocess.fandom.com/wiki/PK-57', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/40/PK-57-Logo.png' },
-  6: { label: 'SAB-R', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 50, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/SAB-R', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/9/90/SABR-Logo.png' },
-  7: { label: 'DL-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/DL-12', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/c/c2/DL-12.png' },
-  8: { label: 'KR82M', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82M', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/8/82/KR-82M.png' },
-  9: { label: 'LS-45', category: 'Handgun', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/LS45', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/e/e6/LS45.png' },
-  10: { label: 'Nack-11', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 18, rpm: 1080, wikiUrl: 'https://dueprocess.fandom.com/wiki/Nack-11', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/7/78/Nack-11.png' },
-  11: { label: 'MAWP', category: 'Sniper Rifle', fireType: 'Single', baseDamage: 85, rpm: 23, wikiUrl: 'https://dueprocess.fandom.com/wiki/MAWP', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/f/f6/MAWP.png' },
-  12: { label: 'Ingmar-57', category: 'Battle Rifle', fireType: 'Auto', baseDamage: 37, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/INGMAR-57', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/40/Ingmar.png' },
-  13: { label: 'Legros', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/b/b9/F1_Legros.png' },
-  14: { label: 'TUB-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/TUB-12', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/b/bf/Tub.png' },
-  15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/47/Autoshotgun.png' },
-  17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/f/fd/KR82U.png' },
+  0: { label: 'Dawn', category: 'LMG', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'assets/weapons/dawn.png' },
+  1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'assets/weapons/ap-25.png' },
+  2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'assets/weapons/blk-tar.png' },
+  3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'assets/weapons/gat-9.png' },
+  4: { label: 'Gruber-5', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gruber-5', imageUrl: 'assets/weapons/gruber-5.png' },
+  5: { label: 'PK-57', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 410, wikiUrl: 'https://dueprocess.fandom.com/wiki/PK-57', imageUrl: 'assets/weapons/pk-57.png' },
+  6: { label: 'SAB-R', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 50, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/SAB-R', imageUrl: 'assets/weapons/sab-r.png' },
+  7: { label: 'DL-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/DL-12', imageUrl: 'assets/weapons/dl-12.png' },
+  8: { label: 'KR82M', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82M', imageUrl: 'assets/weapons/kr82m.png' },
+  9: { label: 'LS-45', category: 'Handgun', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/LS45', imageUrl: 'assets/weapons/ls-45.png' },
+  10: { label: 'Nack-11', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 18, rpm: 1080, wikiUrl: 'https://dueprocess.fandom.com/wiki/Nack-11', imageUrl: 'assets/weapons/nack-11.png' },
+  11: { label: 'MAWP', category: 'Sniper Rifle', fireType: 'Single', baseDamage: 85, rpm: 23, wikiUrl: 'https://dueprocess.fandom.com/wiki/MAWP', imageUrl: 'assets/weapons/mawp.png' },
+  12: { label: 'Ingmar-57', category: 'Battle Rifle', fireType: 'Auto', baseDamage: 37, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/INGMAR-57', imageUrl: 'assets/weapons/ingmar-57.png' },
+  13: { label: 'Legros', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'assets/weapons/legros.png' },
+  14: { label: 'TUB-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/TUB-12', imageUrl: 'assets/weapons/tub-12.png' },
+  15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'assets/weapons/auto-shotgun.png' },
+  16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/short-shotgun.png' },
+  17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'assets/weapons/kr82u.png' },
   // Same baseDamage/rpm as Gruber-5 (4), kept in sync with stats.js's
   // weaponMeta — see that file's comment for how this was identified from
   // log evidence (a suppressor doesn't change damage, only sound/recoil).
-  19: { label: 'Gruber-SD', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  50: { label: 'Grenade', category: 'Explosive', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  51: { label: 'Molotov Cocktail', category: 'Explosive', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
+  19: { label: 'Gruber-SD', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/gruber-sd.png' },
+  50: { label: 'Grenade', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/frag.png' },
+  51: { label: 'Molotov Cocktail', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/molotov.png' },
+  150: { label: 'Door Charge', category: 'Equipment', fireType: 'Breach Charge', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Door_Charge', imageUrl: 'assets/weapons/doorcharge.png' },
+  151: { label: 'Wall Charge', category: 'Equipment', fireType: 'Breach Charge', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Wall_Charge', imageUrl: 'assets/weapons/wallcharge.png' },
 };
 
 function emptyData() {
@@ -336,23 +339,31 @@ class MatchArchive {
     return [...this.data.matches]
       .reverse()
       .slice(0, limit)
-      .map((m) => ({
-        matchId: m.matchId,
-        timestamp: m.timestamp,
-        won: m.won,
-        tied: m.tied ?? m.myScore === m.oppScore,
-        myScore: m.myScore,
-        oppScore: m.oppScore,
-        team0Name: m.team0Name ?? 'Blue Team',
-        team1Name: m.team1Name ?? 'Orange Team',
-        matchup: `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`,
-        mapLabel: m.mapLabel,
-        mapRounds: m.mapRounds,
-        kills: m.kills,
-        deaths: m.deaths,
-        assists: m.assists,
-        inferred: m.inferred,
-      }));
+      .map((m) => {
+        const t0 = m.teams && m.teams[0] ? m.teams[0].length : 0;
+        const t1 = m.teams && m.teams[1] ? m.teams[1].length : 0;
+        const is2v2 = m.is2v2 !== undefined
+          ? Boolean(m.is2v2)
+          : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+        return {
+          matchId: m.matchId,
+          timestamp: m.timestamp,
+          won: m.won,
+          tied: m.tied ?? m.myScore === m.oppScore,
+          is2v2,
+          myScore: m.myScore,
+          oppScore: m.oppScore,
+          team0Name: m.team0Name ?? 'Blue Team',
+          team1Name: m.team1Name ?? 'Orange Team',
+          matchup: `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`,
+          mapLabel: m.mapLabel,
+          mapRounds: m.mapRounds,
+          kills: m.kills,
+          deaths: m.deaths,
+          assists: m.assists,
+          inferred: m.inferred,
+        };
+      });
   }
 
   /**
@@ -369,7 +380,7 @@ class MatchArchive {
         const existing = byCode.get(w.damageSource) ?? {
           damageSource: w.damageSource,
           label: label === 'Big AK' ? 'KR82M' : label === 'Mini AK' ? 'KR82U' : label,
-          category: w.category ?? meta.category,
+          category: meta.category ?? (w.category === 'Explosive' ? 'Throwable' : w.category),
           fireType: w.fireType ?? meta.fireType,
           baseDamage: w.baseDamage ?? meta.baseDamage,
           rpm: w.rpm ?? meta.rpm,
@@ -391,13 +402,47 @@ class MatchArchive {
         byCode.set(w.damageSource, existing);
       }
     }
+
+    // Populate all known weapons from WEAPON_META so unused weapons are included
+    if (this.data.matches.length > 0) {
+      for (const [codeStr, meta] of Object.entries(WEAPON_META)) {
+        const code = Number(codeStr);
+        if (!byCode.has(code)) {
+          byCode.set(code, {
+            damageSource: code,
+            label: meta.label,
+            category: meta.category,
+            fireType: meta.fireType,
+            baseDamage: meta.baseDamage,
+            rpm: meta.rpm,
+            wikiUrl: meta.wikiUrl ?? `https://dueprocess.fandom.com/wiki/${encodeURIComponent(meta.label)}`,
+            imageUrl: meta.imageUrl ?? null,
+            kills: 0,
+            deaths: 0,
+            hits: 0,
+            headshots: null,
+            roundsUsed: 0,
+            unused: true,
+          });
+        }
+      }
+    }
+
     return [...byCode.values()]
-      .map((w) => ({
-        ...w,
-        hsPercent: w.headshots !== null && w.hits > 0 ? Math.round((w.headshots / w.hits) * 100) : null,
-        killsPerRound: w.roundsUsed > 0 ? round2(w.kills / w.roundsUsed) : 0,
-      }))
-      .sort((a, b) => b.kills - a.kills);
+      .map((w) => {
+        const unused = Boolean(w.unused || ((w.roundsUsed || 0) === 0 && (w.hits || 0) === 0 && (w.kills || 0) === 0));
+        return {
+          ...w,
+          unused,
+          hsPercent: !unused && w.headshots !== null && w.hits > 0 ? Math.round((w.headshots / w.hits) * 100) : null,
+          killsPerRound: !unused && w.roundsUsed > 0 ? round2(w.kills / w.roundsUsed) : 0,
+        };
+      })
+      .sort((a, b) => {
+        if (a.unused !== b.unused) return a.unused ? 1 : -1;
+        if (a.unused) return a.label.localeCompare(b.label);
+        return b.kills - a.kills;
+      });
   }
 
   /** Lifetime kills/damage aggregated by weapon, most kills first (local player's weapons only). */
@@ -536,6 +581,289 @@ class MatchArchive {
    */
   getSinglePlayedWith(accountId) {
     return this.getPlayedWithStats().find((p) => p.accountId === accountId) ?? null;
+  }
+
+  /**
+   * Comprehensive historical profile for a single player by accountId.
+   * Aggregates combat metrics, attack vs defense splits, opening duels,
+   * weapon breakdown, and mutual match history.
+   */
+  getFullPlayerProfile(accountId, { isRanked = true } = {}) {
+    const localId = this.data.localAccountId;
+    const isSelf = !!localId && accountId === localId;
+    let latestName = null;
+    let totalMatches = 0;
+    let matchesTogether = 0;
+    let winsTogether = 0;
+    let lossesTogether = 0;
+    let matchesAgainst = 0;
+    let winsAgainst = 0;
+    let lossesAgainst = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+    let totalTies = 0;
+
+    let kills = 0;
+    let deaths = 0;
+    let assists = 0;
+    let damage = 0;
+    let roundsCounted = 0;
+    let kastRounds = 0;
+    let teamDamage = 0;
+
+    let attackDamage = 0;
+    let attackRounds = 0;
+    let defenseDamage = 0;
+    let defenseRounds = 0;
+
+    let duelsWon = 0;
+    let duelsInvolved = 0;
+
+    let totalHits = 0;
+    let totalHeadshots = 0;
+
+    const weaponMap = new Map();
+    const matchHistory = [];
+
+    const checkIs2v2 = (m) => {
+      if (!m) return false;
+      const t0 = Array.isArray(m.teams?.[0]) ? m.teams[0].length : 0;
+      const t1 = Array.isArray(m.teams?.[1]) ? m.teams[1].length : 0;
+      return m.is2v2 !== undefined
+        ? Boolean(m.is2v2)
+        : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+    };
+
+    for (const match of this.data.matches) {
+      if (!match.teams) continue;
+
+      let playerRow = null;
+      let playerSide = null;
+      for (const side of [0, 1]) {
+        const found = (match.teams[side] || []).find((r) => r.accountId === accountId);
+        if (found) {
+          playerRow = found;
+          playerSide = side;
+          break;
+        }
+      }
+
+      if (!playerRow) continue;
+
+      totalMatches += 1;
+      if (playerRow.name) latestName = playerRow.name;
+
+      let mySide = null;
+      if (localId) {
+        if (match.teams[0]?.some((r) => r.accountId === localId)) mySide = 0;
+        else if (match.teams[1]?.some((r) => r.accountId === localId)) mySide = 1;
+      }
+
+      const isTeammate = mySide !== null && playerSide === mySide;
+      const isOpponent = mySide !== null && playerSide !== mySide;
+
+      const tied = match.tied ?? match.myScore === match.oppScore;
+      if (tied) {
+        totalTies += 1;
+      } else {
+        if (isSelf) {
+          if (match.won) totalWins += 1;
+          else totalLosses += 1;
+        } else if (isTeammate) {
+          matchesTogether += 1;
+          if (match.won) winsTogether += 1;
+          else lossesTogether += 1;
+        } else if (isOpponent) {
+          matchesAgainst += 1;
+          if (match.won) winsAgainst += 1;
+          else lossesAgainst += 1;
+        }
+      }
+
+      kills += playerRow.kills ?? 0;
+      deaths += playerRow.deaths ?? 0;
+      assists += playerRow.assists ?? 0;
+      damage += playerRow.damage ?? 0;
+      teamDamage += playerRow.teamDamage ?? 0;
+
+      const matchRounds = playerRow.kast?.roundsCounted ?? match.roundCount ?? 0;
+      roundsCounted += matchRounds;
+      kastRounds += playerRow.kast?.kastRounds ?? 0;
+
+      if (playerRow.adr) {
+        const atkDmg = playerRow.adr.attackDamageRaw !== undefined
+          ? playerRow.adr.attackDamageRaw
+          : (playerRow.adr.attack ?? 0) * (playerRow.adr.attackRounds ?? 0);
+        attackDamage += atkDmg;
+        attackRounds += playerRow.adr.attackRounds ?? 0;
+
+        const defDmg = playerRow.adr.defenseDamageRaw !== undefined
+          ? playerRow.adr.defenseDamageRaw
+          : (playerRow.adr.defense ?? 0) * (playerRow.adr.defenseRounds ?? 0);
+        defenseDamage += defDmg;
+        defenseRounds += playerRow.adr.defenseRounds ?? 0;
+      }
+
+      if (playerRow.openingDuels) {
+        duelsWon += playerRow.openingDuels.won ?? 0;
+        duelsInvolved += playerRow.openingDuels.involved ?? 0;
+      }
+
+      if (Array.isArray(playerRow.weaponBreakdown)) {
+        for (const w of playerRow.weaponBreakdown) {
+          totalHits += w.hits ?? 0;
+          totalHeadshots += w.headshots ?? 0;
+
+          const key = w.damageSource ?? w.label;
+          const cur = weaponMap.get(key) ?? {
+            damageSource: w.damageSource,
+            label: (w.damageSource !== undefined && WEAPON_META[w.damageSource]?.label) ? WEAPON_META[w.damageSource].label : (w.label || `Weapon #${w.damageSource}`),
+            category: (w.damageSource !== undefined && WEAPON_META[w.damageSource]?.category) ? WEAPON_META[w.damageSource].category : (w.category || 'Unknown'),
+            fireType: (w.damageSource !== undefined && WEAPON_META[w.damageSource]?.fireType) ? WEAPON_META[w.damageSource].fireType : (w.fireType || 'Auto'),
+            kills: 0,
+            deaths: 0,
+            hits: 0,
+            headshots: 0,
+            damage: 0,
+            roundsUsed: 0,
+          };
+          cur.kills += w.kills ?? 0;
+          cur.deaths += w.deaths ?? 0;
+          cur.hits += w.hits ?? 0;
+          cur.headshots += w.headshots ?? 0;
+          cur.damage += w.damage ?? 0;
+          cur.roundsUsed += w.roundsUsed ?? 0;
+          weaponMap.set(key, cur);
+        }
+      }
+
+      const team0 = match.team0Name || 'Blue Team';
+      const team1 = match.team1Name || 'Orange Team';
+      const matchup = `${team0} vs ${team1}`;
+
+      let playerWon = false;
+      let playerTied = tied;
+      if (mySide !== null) {
+        if (isTeammate || isSelf) {
+          playerWon = !!match.won;
+        } else if (isOpponent) {
+          playerWon = !match.won && !tied;
+        }
+      } else {
+        const pScore = playerSide === 0 ? match.team0Score ?? match.myScore : match.team1Score ?? match.oppScore;
+        const oScore = playerSide === 0 ? match.team1Score ?? match.oppScore : match.team0Score ?? match.myScore;
+        playerWon = pScore > oScore;
+        playerTied = pScore === oScore;
+      }
+
+      matchHistory.push({
+        matchId: match.matchId,
+        timestamp: match.timestamp,
+        matchup,
+        mapLabel: match.mapLabel || 'Unknown Map',
+        isRanked,
+        is2v2: checkIs2v2(match),
+        won: match.won,
+        tied: playerTied,
+        playerWon,
+        myScore: match.myScore,
+        oppScore: match.oppScore,
+        isTeammate,
+        isOpponent,
+        isSelf,
+        kills: playerRow.kills ?? 0,
+        deaths: playerRow.deaths ?? 0,
+        assists: playerRow.assists ?? 0,
+        damage: playerRow.damage ?? 0,
+        hsPercent: playerRow.hsPercent ?? null,
+        dplRating: playerRow.dplRating ?? 1.0,
+      });
+    }
+
+    if (totalMatches === 0) return null;
+
+    matchHistory.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+
+    const winRateTogether = matchesTogether > 0 ? Math.round((winsTogether / matchesTogether) * 100) : 0;
+    const winRateAgainst = matchesAgainst > 0 ? Math.round((winsAgainst / matchesAgainst) * 100) : 0;
+    const kdr = deaths > 0 ? kills / deaths : kills;
+    const adr = roundsCounted > 0 ? damage / roundsCounted : 0;
+    const kastPct = roundsCounted > 0 ? Math.round((kastRounds / roundsCounted) * 100) : 0;
+
+    const playerWins = isSelf ? totalWins : (winsTogether + lossesAgainst);
+    const relevantMatches = isSelf ? (totalWins + totalLosses) : (matchesTogether + matchesAgainst);
+    const overallWinRate = relevantMatches > 0 ? (playerWins / relevantMatches) * 100 : 50;
+
+    const dplRating = computeDplRating({
+      kills,
+      deaths,
+      assists,
+      damage,
+      roundsCounted,
+      kastRounds,
+      winRate: overallWinRate,
+    });
+
+    const attackAdr = attackRounds > 0 ? Math.round(attackDamage / attackRounds) : 0;
+    const defenseAdr = defenseRounds > 0 ? Math.round(defenseDamage / defenseRounds) : 0;
+
+    const openingDuelRate = duelsInvolved > 0 ? Math.round((duelsWon / duelsInvolved) * 100) : 0;
+    const hsPercent = totalHits > 0 ? Math.round((totalHeadshots / totalHits) * 100) : 0;
+
+    const weapons = [...weaponMap.values()]
+      .map((w) => ({
+        ...w,
+        hsPercent: w.hits > 0 ? Math.round((w.headshots / w.hits) * 100) : 0,
+        kpr: w.roundsUsed > 0 ? round2(w.kills / w.roundsUsed) : round2(w.kills),
+      }))
+      .sort((a, b) => b.kills - a.kills || b.damage - a.damage);
+
+    return {
+      accountId,
+      name: latestName || `Player #${accountId.slice(-4)}`,
+      isSelf,
+      totalMatches,
+      matchesTogether,
+      winsTogether,
+      lossesTogether,
+      winRateTogether,
+      matchesAgainst,
+      winsAgainst,
+      lossesAgainst,
+      winRateAgainst,
+      totalWins,
+      totalLosses,
+      totalTies,
+      overallWinRate: Math.round(overallWinRate),
+      kills,
+      deaths,
+      assists,
+      kdr: round2(kdr),
+      damage,
+      adr: Math.round(adr),
+      roundsCounted,
+      kast: kastPct,
+      dplRating,
+      teamDamage,
+      attackAdr,
+      attackDamage,
+      attackRounds,
+      defenseAdr,
+      defenseDamage,
+      defenseRounds,
+      openingDuels: {
+        won: duelsWon,
+        involved: duelsInvolved,
+        winRate: openingDuelRate,
+      },
+      headshots: {
+        hits: totalHits,
+        headshots: totalHeadshots,
+        hsPercent,
+      },
+      weapons,
+      matchHistory,
+    };
   }
 
   saveMapNote(mapName, note) {

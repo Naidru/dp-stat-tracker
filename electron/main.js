@@ -11,9 +11,23 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const { exec } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, shell, desktopCapturer } = require('electron');
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, shell, desktopCapturer, Tray, Menu, Notification, nativeImage } = require('electron');
 
-app.setName('due-process-scoreboard');
+app.setName('Due Process Tracker');
+app.setAppUserModelId('com.dpstat.tracker');
+
+const iconIcoPath = path.join(__dirname, 'assets', 'icon.ico');
+const iconPngPath = path.join(__dirname, 'assets', 'icon.png');
+const appIconPath = fs.existsSync(iconIcoPath) ? iconIcoPath : (fs.existsSync(iconPngPath) ? iconPngPath : null);
+let appIcon = null;
+if (appIconPath) {
+  try {
+    const img = nativeImage.createFromPath(appIconPath);
+    if (!img.isEmpty()) appIcon = img;
+  } catch (err) {
+    console.warn('Failed to create nativeImage icon:', err);
+  }
+}
 
 const config = require('./config');
 const { MatchArchive } = require('./match-archive');
@@ -21,14 +35,19 @@ const { findLocalAccountId } = require('./local-player');
 const { MapTracker } = require('./map-tracker');
 const { MapLayoutLibrary } = require('./map-layout-library');
 const { ThemeStore, DEFAULT_THEME } = require('./theme-store');
+const { SettingsStore } = require('./settings-store');
 const { recordCompletedMatch, scanLogFileForCompletedMatches } = require('./rescan');
 
 let overlayWindow = null;
 let hubWindow = null;
+let tray = null;
+let isQuitting = false;
+let lastNotificationTime = 0;
 let rankedArchive = null; // match-archive.json — ranked (7-X / 6-6) matches, the ONLY source for career totals
 let otherArchive = null; // other-matches-archive.json — everything else (unranked, 2v2, Push, ...), never counted toward totals
 let mapLayoutLibrary = null;
 let themeStore = null; // theme.json — 'dark' | 'light', shared by both windows (see theme-store.js)
+let settingsStore = null; // settings.json — customizable keybinds & preferences
 // Holds the just-captured (not yet saved) picture between the hotkey press
 // and the user confirming it in the Hub's preview popup — see
 // captureMapScreenshot() and the hub:map-screenshot-confirm/retry handlers.
@@ -76,6 +95,7 @@ function createOverlayWindow() {
     skipTaskbar: true,
     resizable: true,
     show: false,
+    icon: appIcon || appIconPath,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -102,6 +122,7 @@ function createHubWindow() {
     minHeight: 640,
     alwaysOnTop: false,
     title: 'Due Process Tracker',
+    icon: appIcon || appIconPath,
     backgroundColor: bg,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -109,9 +130,102 @@ function createHubWindow() {
       nodeIntegration: false,
     },
   });
+  if (appIcon && typeof hubWindow.setIcon === 'function') {
+    hubWindow.setIcon(appIcon);
+  }
   hubWindow.loadFile(path.join(__dirname, 'hub.html'));
+
+  // Close-to-tray behavior: hide window to tray instead of quitting,
+  // keeping the overlay and background log watcher active.
+  hubWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      hubWindow.hide();
+      showTrayNotification();
+    }
+  });
+
   hubWindow.on('closed', () => {
     hubWindow = null;
+  });
+}
+
+function showHubWindow() {
+  if (!hubWindow || hubWindow.isDestroyed()) {
+    createHubWindow();
+    hubWindow.webContents.once('did-finish-load', () => sendHubUpdate());
+  } else {
+    if (hubWindow.isMinimized()) hubWindow.restore();
+    if (!hubWindow.isVisible()) hubWindow.show();
+    hubWindow.focus();
+  }
+}
+
+function showTrayNotification() {
+  const now = Date.now();
+  if (now - lastNotificationTime < 5000) return;
+  lastNotificationTime = now;
+
+  const title = 'Due Process Tracker';
+  const body = 'App is running in the system tray. Live match tracking and overlay remain active.';
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title,
+      body,
+      icon: iconPath,
+      silent: false,
+    });
+    notification.on('click', () => {
+      showHubWindow();
+    });
+    notification.show();
+  } else if (tray && typeof tray.displayBalloon === 'function') {
+    tray.displayBalloon({
+      title,
+      content: body,
+      icon: iconPath,
+    });
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  const currentHotkey = settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY;
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open Tracker Hub',
+      click: () => showHubWindow(),
+    },
+    {
+      label: `Toggle Overlay (${currentHotkey})`,
+      click: () => toggleOverlayManually(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Tracker',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+  tray = new Tray(iconPath);
+  tray.setToolTip('Due Process Tracker');
+
+  updateTrayMenu();
+
+  tray.on('click', () => {
+    showHubWindow();
+  });
+  tray.on('double-click', () => {
+    showHubWindow();
   });
 }
 
@@ -413,7 +527,7 @@ function sendOverlayUpdate(match, stats) {
     teams: stats?.teams ?? { 0: [], 1: [] },
     currentMap: mapTracker.peekCurrent().at(-1)?.label ?? null,
     localAccountId: localAccountId || rankedArchive.getLocalAccountId(),
-    overlayHotkey: config.OVERLAY_HOTKEY,
+    overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
   });
 }
 
@@ -543,6 +657,7 @@ function sendHubUpdate() {
     playedWithStats: playedWithStats,
     mapStats: rankedArchive.getMapStats(),
     liveMatch: getLiveMatchState(playedWithStats, lifetimeStats),
+    overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
   });
 }
 
@@ -665,18 +780,267 @@ ipcMain.on('theme:set', (_event, theme) => {
   }
 });
 
+// ---------------------------------------------------------------------
+// Keybind Settings (dynamic re-registration and persistence)
+// ---------------------------------------------------------------------
+
+ipcMain.handle('settings:get-overlay-hotkey', () => {
+  return {
+    hotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
+    defaultHotkey: settingsStore ? settingsStore.getDefault('overlayHotkey') : config.OVERLAY_HOTKEY,
+  };
+});
+
+ipcMain.handle('settings:set-overlay-hotkey', (_event, newHotkey) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  if (!newHotkey || typeof newHotkey !== 'string' || !newHotkey.trim()) {
+    return { success: false, error: 'Invalid key combination.' };
+  }
+
+  const trimmed = newHotkey.trim();
+  const current = settingsStore.get('overlayHotkey');
+  const mapHotkey = settingsStore.get('mapCaptureHotkey');
+  if (trimmed === current) {
+    return { success: true, hotkey: current };
+  }
+
+  if (mapHotkey && trimmed.toLowerCase() === mapHotkey.toLowerCase()) {
+    return { success: false, error: 'This key combination is already used for the Map Capture keybind.' };
+  }
+
+  // Unregister existing hotkey
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  // Attempt registration of new hotkey
+  let registered = false;
+  try {
+    registered = globalShortcut.register(trimmed, toggleOverlayManually);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    // Roll back to previous working hotkey
+    try {
+      globalShortcut.register(current, toggleOverlayManually);
+    } catch {}
+    return {
+      success: false,
+      error: `Could not register '${trimmed}'. The key combination may be reserved by Windows or another application.`,
+      hotkey: current,
+    };
+  }
+
+  // Persist new hotkey
+  settingsStore.set('overlayHotkey', trimmed);
+  console.log(`Global overlay hotkey updated from ${current} to: ${trimmed}`);
+  updateTrayMenu();
+
+  // Broadcast to both windows
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('overlay:update-hotkey', trimmed);
+  }
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:overlay-hotkey-changed', trimmed);
+  }
+
+  return { success: true, hotkey: trimmed };
+});
+
+ipcMain.handle('settings:reset-overlay-hotkey', (_event) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  const defaultHotkey = settingsStore.getDefault('overlayHotkey');
+  const current = settingsStore.get('overlayHotkey');
+  if (defaultHotkey === current) {
+    return { success: true, hotkey: current };
+  }
+
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  let registered = false;
+  try {
+    registered = globalShortcut.register(defaultHotkey, toggleOverlayManually);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    try {
+      globalShortcut.register(current, toggleOverlayManually);
+    } catch {}
+    return {
+      success: false,
+      error: `Failed to restore default hotkey '${defaultHotkey}'.`,
+      hotkey: current,
+    };
+  }
+
+  settingsStore.set('overlayHotkey', defaultHotkey);
+  console.log(`Global overlay hotkey reset to default: ${defaultHotkey}`);
+  updateTrayMenu();
+
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('overlay:update-hotkey', defaultHotkey);
+  }
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:overlay-hotkey-changed', defaultHotkey);
+  }
+
+  return { success: true, hotkey: defaultHotkey };
+});
+
+ipcMain.handle('settings:get-map-capture-hotkey', () => {
+  return {
+    hotkey: settingsStore ? settingsStore.get('mapCaptureHotkey') : config.MAP_SCREENSHOT_HOTKEY,
+    defaultHotkey: settingsStore ? settingsStore.getDefault('mapCaptureHotkey') : config.MAP_SCREENSHOT_HOTKEY,
+  };
+});
+
+ipcMain.handle('settings:set-map-capture-hotkey', (_event, newHotkey) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  if (!newHotkey || typeof newHotkey !== 'string' || !newHotkey.trim()) {
+    return { success: false, error: 'Invalid key combination.' };
+  }
+
+  const trimmed = newHotkey.trim();
+  const current = settingsStore.get('mapCaptureHotkey');
+  const overlayHotkey = settingsStore.get('overlayHotkey');
+
+  if (trimmed === current) {
+    return { success: true, hotkey: current };
+  }
+
+  if (overlayHotkey && trimmed.toLowerCase() === overlayHotkey.toLowerCase()) {
+    return { success: false, error: 'This key combination is already used for the Overlay keybind.' };
+  }
+
+  // Unregister existing hotkey
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  // Attempt registration of new hotkey
+  let registered = false;
+  try {
+    registered = globalShortcut.register(trimmed, captureMapScreenshot);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    // Roll back to previous working hotkey
+    try {
+      globalShortcut.register(current, captureMapScreenshot);
+    } catch {}
+    return {
+      success: false,
+      error: `Could not register '${trimmed}'. The key combination may be reserved by Windows or another application.`,
+      hotkey: current,
+    };
+  }
+
+  // Persist new hotkey
+  settingsStore.set('mapCaptureHotkey', trimmed);
+  console.log(`Global map capture hotkey updated from ${current} to: ${trimmed}`);
+
+  // Broadcast to hub window
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:map-capture-hotkey-changed', trimmed);
+  }
+
+  return { success: true, hotkey: trimmed };
+});
+
+ipcMain.handle('settings:reset-map-capture-hotkey', (_event) => {
+  if (!settingsStore) {
+    return { success: false, error: 'Settings store not initialized.' };
+  }
+  const defaultHotkey = settingsStore.getDefault('mapCaptureHotkey');
+  const current = settingsStore.get('mapCaptureHotkey');
+  if (defaultHotkey === current) {
+    return { success: true, hotkey: current };
+  }
+
+  try {
+    globalShortcut.unregister(current);
+  } catch {}
+
+  let registered = false;
+  try {
+    registered = globalShortcut.register(defaultHotkey, captureMapScreenshot);
+  } catch (err) {
+    registered = false;
+  }
+
+  if (!registered) {
+    try {
+      globalShortcut.register(current, captureMapScreenshot);
+    } catch {}
+    return {
+      success: false,
+      error: `Failed to restore default hotkey '${defaultHotkey}'.`,
+      hotkey: current,
+    };
+  }
+
+  settingsStore.set('mapCaptureHotkey', defaultHotkey);
+  console.log(`Global map capture hotkey reset to default: ${defaultHotkey}`);
+
+  if (hubWindow && !hubWindow.isDestroyed()) {
+    hubWindow.webContents.send('settings:map-capture-hotkey-changed', defaultHotkey);
+  }
+
+  return { success: true, hotkey: defaultHotkey };
+});
+
+
 // Match-detail view (click-through from either list) reads straight from
 // whichever archive actually has it — works even after the source log has
 // rotated away, since the full scoreboard was persisted at record time.
 ipcMain.handle('hub:get-match-detail', (_event, matchId) => {
+  const checkIs2v2 = (m) => {
+    const t0 = m.teams && m.teams[0] ? m.teams[0].length : 0;
+    const t1 = m.teams && m.teams[1] ? m.teams[1].length : 0;
+    return m.is2v2 !== undefined
+      ? Boolean(m.is2v2)
+      : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+  };
   const rankedMatch = rankedArchive.getMatch(matchId);
-  if (rankedMatch) return { ...rankedMatch, isRanked: true };
+  if (rankedMatch) return { ...rankedMatch, isRanked: true, is2v2: checkIs2v2(rankedMatch) };
   const otherMatch = otherArchive.getMatch(matchId);
-  return otherMatch ? { ...otherMatch, isRanked: false } : null;
+  return otherMatch ? { ...otherMatch, isRanked: false, is2v2: checkIs2v2(otherMatch) } : null;
 });
 
 ipcMain.handle('hub:get-player-detail', (_event, accountId) => {
   return rankedArchive.getSinglePlayedWith(accountId);
+});
+
+ipcMain.handle('hub:get-full-player-profile', (_event, accountId) => {
+  const rankedProfile = rankedArchive ? rankedArchive.getFullPlayerProfile(accountId, { isRanked: true }) : null;
+  const otherProfile = otherArchive ? otherArchive.getFullPlayerProfile(accountId, { isRanked: false }) : null;
+
+  if (!rankedProfile) {
+    return otherProfile;
+  }
+  if (otherProfile && Array.isArray(otherProfile.matchHistory) && otherProfile.matchHistory.length > 0) {
+    const combinedHistory = [...rankedProfile.matchHistory, ...otherProfile.matchHistory];
+    combinedHistory.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+    return {
+      ...rankedProfile,
+      matchHistory: combinedHistory,
+    };
+  }
+  return rankedProfile;
 });
 
 // Overlay -> Hub click-through: the overlay window can't open its own modal
@@ -848,6 +1212,7 @@ async function main() {
   otherArchive = new MatchArchive(path.join(userDataDir, 'other-matches-archive.json'));
   mapLayoutLibrary = new MapLayoutLibrary(path.join(userDataDir, 'map-layouts'));
   themeStore = new ThemeStore(path.join(userDataDir, 'theme.json'));
+  settingsStore = new SettingsStore(path.join(userDataDir, 'settings.json'));
   localAccountId = rankedArchive.getLocalAccountId() || otherArchive.getLocalAccountId();
 
   createOverlayWindow();
@@ -859,19 +1224,22 @@ async function main() {
   // recordCompletedMatch is dedupe-guarded), so re-sending is harmless.
   overlayWindow.webContents.once('did-finish-load', () => onParserUpdate());
   ensureHubWindowReady(() => sendHubUpdate());
+  createTray();
 
-  const registered = globalShortcut.register(config.OVERLAY_HOTKEY, toggleOverlayManually);
+  const activeOverlayHotkey = settingsStore.get('overlayHotkey');
+  const registered = globalShortcut.register(activeOverlayHotkey, toggleOverlayManually);
   if (registered) {
-    console.log(`Successfully registered global overlay hotkey: ${config.OVERLAY_HOTKEY}`);
+    console.log(`Successfully registered global overlay hotkey: ${activeOverlayHotkey}`);
   } else {
-    console.warn(`FAILED to register global overlay hotkey ${config.OVERLAY_HOTKEY} — it may be in use by another app.`);
+    console.warn(`FAILED to register global overlay hotkey ${activeOverlayHotkey} — it may be in use by another app.`);
   }
 
-  const mapHotkeyRegistered = globalShortcut.register(config.MAP_SCREENSHOT_HOTKEY, captureMapScreenshot);
+  const activeMapHotkey = settingsStore ? settingsStore.get('mapCaptureHotkey') : config.MAP_SCREENSHOT_HOTKEY;
+  const mapHotkeyRegistered = globalShortcut.register(activeMapHotkey, captureMapScreenshot);
   if (mapHotkeyRegistered) {
-    console.log(`Successfully registered map screenshot hotkey: ${config.MAP_SCREENSHOT_HOTKEY}`);
+    console.log(`Successfully registered map screenshot hotkey: ${activeMapHotkey}`);
   } else {
-    console.warn(`FAILED to register map screenshot hotkey ${config.MAP_SCREENSHOT_HOTKEY} — it may be in use by another app.`);
+    console.warn(`FAILED to register map screenshot hotkey ${activeMapHotkey} — it may be in use by another app.`);
   }
 
   startGameDetection();
@@ -927,15 +1295,27 @@ async function main() {
     if (BrowserWindow.getAllWindows().length === 0) {
       createOverlayWindow();
       createHubWindow();
+    } else {
+      showHubWindow();
     }
   });
 }
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  app.quit();
+  if (isQuitting) {
+    app.quit();
+  }
 });
 
 app.on('will-quit', () => {
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+    tray = null;
+  }
   globalShortcut.unregisterAll();
 });
 

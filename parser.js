@@ -89,6 +89,7 @@ function newMatch() {
     finalScore: null, // { side0, side1, source: 'roundWins' | 'matchEndedPayload' }
     team0Name: null,
     team1Name: null,
+    is2v2: false,
     players: new Map(), // accountId -> { accountId, name, entityId, rosterSide, iconUrl }
     roundsByNumber: new Map(), // roundNumber -> round
     // Match-level, not per-round — see the killfeed-handling comment below
@@ -120,6 +121,7 @@ export class DueProcessLogParser {
     this._pendingMapLabel = null;
     this._pendingTeam0Name = null;
     this._pendingTeam1Name = null;
+    this._pendingIs2v2 = false;
     this._tail = ''; // buffered partial line, for incremental/streaming input
   }
 
@@ -147,9 +149,13 @@ export class DueProcessLogParser {
       this._sawMatchStarted = true;
       this._pendingTeam0Name = startPayload.Team1Name ?? null;
       this._pendingTeam1Name = startPayload.Team2Name ?? null;
+      if (Array.isArray(startPayload.Team1Members) && Array.isArray(startPayload.Team2Members)) {
+        this._pendingIs2v2 = startPayload.Team1Members.length <= 2 && startPayload.Team2Members.length <= 2;
+      }
       if (this.current) {
         this.current.team0Name = this._pendingTeam0Name;
         this.current.team1Name = this._pendingTeam1Name;
+        if (this._pendingIs2v2) this.current.is2v2 = true;
       }
     }
 
@@ -202,8 +208,10 @@ export class DueProcessLogParser {
         this.current.liveMatchId = this._pendingLiveMatchId;
         this.current.team0Name = this._pendingTeam0Name;
         this.current.team1Name = this._pendingTeam1Name;
+        this.current.is2v2 = this._pendingIs2v2;
         this._pendingLiveMatchId = null;
         this._sawMatchStarted = false;
+        this._pendingIs2v2 = false;
       } else {
         return;
       }

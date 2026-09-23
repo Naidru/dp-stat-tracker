@@ -49,6 +49,14 @@ window.themeAPI.onChange((theme) => {
   document.documentElement.setAttribute('data-theme', theme);
 });
 
+if (window.overlayAPI?.onHotkeyUpdated) {
+  window.overlayAPI.onHotkeyUpdated((newHotkey) => {
+    if (hotkeyHintEl) {
+      hotkeyHintEl.textContent = `${formatHotkeyDisplay(newHotkey)} to hide`;
+    }
+  });
+}
+
 // Player click-through to the Hub's Player Quick Reference modal. Delegated
 // on the container (attached once) rather than per-row like hub-renderer.js's
 // attachPlayerClickHandlers, since render() above rebuilds `.player-row`

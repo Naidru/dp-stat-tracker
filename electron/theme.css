@@ -438,3 +438,92 @@ table.rows td {
 table.rows tr:last-child td {
   border-bottom: none;
 }
+
+/* ----------------------------------------------------------------------
+   Keybind Settings in Hub Settings Menu
+   ---------------------------------------------------------------------- */
+.keybind-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keybind-btn {
+  flex: 1;
+  background: var(--bg-tile);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keybind-btn:hover {
+  border-color: var(--accent-dim);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.keybind-btn.recording {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.18);
+  color: var(--accent-bright);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.35);
+  animation: keybindPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes keybindPulse {
+  0% { box-shadow: 0 0 4px rgba(var(--accent-rgb), 0.2); }
+  50% { box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.55); border-color: var(--accent-bright); }
+  100% { box-shadow: 0 0 4px rgba(var(--accent-rgb), 0.2); }
+}
+
+.keybind-reset-btn {
+  background: var(--bg-tile);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+  padding: 6px 9px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.keybind-reset-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-bright);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.keybind-status {
+  font-size: 11px;
+  font-family: var(--font-body);
+  line-height: 1.3;
+  padding: 4px 6px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.keybind-status--success {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+}
+
+.keybind-status--error {
+  color: var(--loss);
+  background: rgba(var(--loss-rgb), 0.1);
+  border: 1px solid rgba(var(--loss-rgb), 0.25);
+}
+
