@@ -1344,6 +1344,7 @@ async function main() {
   // source of truth (match-archive.js sums it on read), so the Hub can show
   // correct history the moment its window is ready, with no rescanning
   // needed just to display what's already recorded.
+  const userDataDir = app.getPath('userData');
   rankedArchive = new MatchArchive(path.join(userDataDir, 'match-archive.json'));
   otherArchive = new MatchArchive(path.join(userDataDir, 'other-matches-archive.json'));
 
