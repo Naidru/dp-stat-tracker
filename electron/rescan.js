@@ -243,6 +243,11 @@ function recordCompletedMatch(
 
   const team0Name = match.team0Name || 'Blue Team';
   const team1Name = match.team1Name || 'Orange Team';
+  const t0 = stats.teams && stats.teams[0] ? stats.teams[0].length : 0;
+  const t1 = stats.teams && stats.teams[1] ? stats.teams[1].length : 0;
+  const is2v2 = match.is2v2 !== undefined
+    ? Boolean(match.is2v2)
+    : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof roundMaps[0]?.label === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(roundMaps[0]?.label)));
 
   targetArchive.recordMatch({
     matchId,
@@ -256,6 +261,7 @@ function recordCompletedMatch(
     // render a result label need this separate flag to show "TIE" instead
     // of quietly treating a tie as a loss.
     tied: myScore === oppScore,
+    is2v2,
     myScore,
     oppScore,
     team0Name,

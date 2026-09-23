@@ -10,9 +10,8 @@
 
 // --- Weapon name lookup -----------------------------------------------
 // `damageSource` in Stats::Kill / Stats::Damage is a numeric code with no
-// name in the log. Confirmed mapping supplied by the user; codes 16 and 18
-// haven't been seen in any log yet, and 8/17 are unconfirmed guesses (see
-// their TODOs). Anything not listed here falls back to "Weapon #<code>".
+// name in the log.
+// Code 0 is the Defender Dawn LMG.
 export const weaponNames = {
   0: 'Dawn',
   1: 'AP-25',
@@ -45,38 +44,42 @@ export const weaponNames = {
   19: 'Gruber-SD',
   50: 'Grenade',
   51: 'Molotov Cocktail',
+  150: 'Door Charge',
+  151: 'Wall Charge',
 };
 
 // --- Full Weapon Metadata (from community spreadsheet & Fandom wiki) ---
 export const weaponMeta = {
-  0: { label: 'Dawn', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/a/a2/Dawn.png' },
-  1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/4d/AP-25-Logo.png' },
-  2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/d/dd/BLK-Tar.png' },
-  3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/e/e3/Gat-9.png' },
-  4: { label: 'Gruber-5', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gruber-5', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/a/a0/Gruber-5.png' },
-  5: { label: 'PK-57', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 410, wikiUrl: 'https://dueprocess.fandom.com/wiki/PK-57', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/40/PK-57-Logo.png' },
-  6: { label: 'SAB-R', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 50, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/SAB-R', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/9/90/SABR-Logo.png' },
-  7: { label: 'DL-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/DL-12', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/c/c2/DL-12.png' },
-  8: { label: 'KR82M', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82M', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/8/82/KR-82M.png' },
-  9: { label: 'LS-45', category: 'Handgun', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/LS45', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/e/e6/LS45.png' },
-  10: { label: 'Nack-11', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 18, rpm: 1080, wikiUrl: 'https://dueprocess.fandom.com/wiki/Nack-11', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/7/78/Nack-11.png' },
-  11: { label: 'MAWP', category: 'Sniper Rifle', fireType: 'Single', baseDamage: 85, rpm: 23, wikiUrl: 'https://dueprocess.fandom.com/wiki/MAWP', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/f/f6/MAWP.png' },
-  12: { label: 'Ingmar-57', category: 'Battle Rifle', fireType: 'Auto', baseDamage: 37, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/INGMAR-57', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/40/Ingmar.png' },
-  13: { label: 'Legros', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/b/b9/F1_Legros.png' },
-  14: { label: 'TUB-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/TUB-12', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/b/bf/Tub.png' },
-  15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/4/47/Autoshotgun.png' },
+  0: { label: 'Dawn', category: 'LMG', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'assets/weapons/dawn.png' },
+  1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'assets/weapons/ap-25.png' },
+  2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'assets/weapons/blk-tar.png' },
+  3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'assets/weapons/gat-9.png' },
+  4: { label: 'Gruber-5', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gruber-5', imageUrl: 'assets/weapons/gruber-5.png' },
+  5: { label: 'PK-57', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 410, wikiUrl: 'https://dueprocess.fandom.com/wiki/PK-57', imageUrl: 'assets/weapons/pk-57.png' },
+  6: { label: 'SAB-R', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 50, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/SAB-R', imageUrl: 'assets/weapons/sab-r.png' },
+  7: { label: 'DL-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/DL-12', imageUrl: 'assets/weapons/dl-12.png' },
+  8: { label: 'KR82M', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82M', imageUrl: 'assets/weapons/kr82m.png' },
+  9: { label: 'LS-45', category: 'Handgun', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/LS45', imageUrl: 'assets/weapons/ls-45.png' },
+  10: { label: 'Nack-11', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 18, rpm: 1080, wikiUrl: 'https://dueprocess.fandom.com/wiki/Nack-11', imageUrl: 'assets/weapons/nack-11.png' },
+  11: { label: 'MAWP', category: 'Sniper Rifle', fireType: 'Single', baseDamage: 85, rpm: 23, wikiUrl: 'https://dueprocess.fandom.com/wiki/MAWP', imageUrl: 'assets/weapons/mawp.png' },
+  12: { label: 'Ingmar-57', category: 'Battle Rifle', fireType: 'Auto', baseDamage: 37, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/INGMAR-57', imageUrl: 'assets/weapons/ingmar-57.png' },
+  13: { label: 'Legros', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'assets/weapons/legros.png' },
+  14: { label: 'TUB-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/TUB-12', imageUrl: 'assets/weapons/tub-12.png' },
+  15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'assets/weapons/auto-shotgun.png' },
   // Category confirmed by name/dp-stats.com; baseDamage/rpm/fireType left
   // unconfirmed (null/Unknown) rather than guessed — no verified source for
   // the exact numbers the way there is for the other weapons here.
-  16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'https://static.wikia.nocookie.net/dueprocess_gamepedia/images/f/fd/KR82U.png' },
+  16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/short-shotgun.png' },
+  17: { label: 'KR82U', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82U', imageUrl: 'assets/weapons/kr82u.png' },
   // Same baseDamage/rpm as Gruber-5 (4) — a suppressor doesn't change
   // damage, only sound/recoil. No dedicated wiki page exists yet, hence
   // the generic Weapons-page link and no imageUrl (same pattern as
   // Grenade/Molotov below).
-  19: { label: 'Gruber-SD', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  50: { label: 'Grenade', category: 'Explosive', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
-  51: { label: 'Molotov Cocktail', category: 'Explosive', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: null },
+  19: { label: 'Gruber-SD', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/gruber-sd.png' },
+  50: { label: 'Grenade', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/frag.png' },
+  51: { label: 'Molotov Cocktail', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/molotov.png' },
+  150: { label: 'Door Charge', category: 'Equipment', fireType: 'Breach Charge', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Door_Charge', imageUrl: 'assets/weapons/doorcharge.png' },
+  151: { label: 'Wall Charge', category: 'Equipment', fireType: 'Breach Charge', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Wall_Charge', imageUrl: 'assets/weapons/wallcharge.png' },
 };
 
 // --- Weapon base (torso) damage, for headshot detection ----------------

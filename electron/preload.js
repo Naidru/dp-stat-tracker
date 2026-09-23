@@ -28,10 +28,28 @@ contextBridge.exposeInMainWorld('overlayAPI', {
   onUpdate: (callback) => {
     ipcRenderer.on('overlay:update', (_event, payload) => callback(payload));
   },
+  onHotkeyUpdated: (callback) => {
+    ipcRenderer.on('overlay:update-hotkey', (_event, hotkey) => callback(hotkey));
+  },
   // Fire-and-forget: main.js ensures/focuses the Hub window and pushes it
   // 'hub:show-player-detail' in response. See main.js's
   // 'overlay:open-player-detail' handler.
   openPlayerDetail: (accountId) => ipcRenderer.send('overlay:open-player-detail', accountId),
+});
+
+contextBridge.exposeInMainWorld('settingsAPI', {
+  getOverlayHotkey: () => ipcRenderer.invoke('settings:get-overlay-hotkey'),
+  setOverlayHotkey: (hotkey) => ipcRenderer.invoke('settings:set-overlay-hotkey', hotkey),
+  resetOverlayHotkey: () => ipcRenderer.invoke('settings:reset-overlay-hotkey'),
+  onOverlayHotkeyChanged: (callback) => {
+    ipcRenderer.on('settings:overlay-hotkey-changed', (_event, hotkey) => callback(hotkey));
+  },
+  getMapCaptureHotkey: () => ipcRenderer.invoke('settings:get-map-capture-hotkey'),
+  setMapCaptureHotkey: (hotkey) => ipcRenderer.invoke('settings:set-map-capture-hotkey', hotkey),
+  resetMapCaptureHotkey: () => ipcRenderer.invoke('settings:reset-map-capture-hotkey'),
+  onMapCaptureHotkeyChanged: (callback) => {
+    ipcRenderer.on('settings:map-capture-hotkey-changed', (_event, hotkey) => callback(hotkey));
+  },
 });
 
 contextBridge.exposeInMainWorld('hubAPI', {
@@ -56,6 +74,7 @@ contextBridge.exposeInMainWorld('hubAPI', {
   getRankedHistory: () => ipcRenderer.invoke('hub:get-ranked-history'),
   getOtherHistory: () => ipcRenderer.invoke('hub:get-other-history'),
   getPlayerDetail: (accountId) => ipcRenderer.invoke('hub:get-player-detail', accountId),
+  getFullPlayerProfile: (accountId) => ipcRenderer.invoke('hub:get-full-player-profile', accountId),
   getSteamAvatar: (accountId) => ipcRenderer.invoke('hub:get-steam-avatar', accountId),
   // Live player count for the game itself (Steam's public API), not
   // per-account data — see main.js's handleGetPlayerCount.

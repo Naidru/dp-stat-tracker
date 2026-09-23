@@ -49,6 +49,307 @@ window.themeAPI.onChange((theme) => {
   applyThemeButtonState(theme);
 });
 
+// ---------------------------------------------------------------------
+// Keybind Settings (Overlay & Map Capture: recorder, persistence & status feedback)
+// ---------------------------------------------------------------------
+
+const overlayHotkeyBtn = document.getElementById('overlayHotkeyBtn');
+const overlayHotkeyResetBtn = document.getElementById('overlayHotkeyResetBtn');
+const overlayHotkeyStatus = document.getElementById('overlayHotkeyStatus');
+
+const mapCaptureHotkeyBtn = document.getElementById('mapCaptureHotkeyBtn');
+const mapCaptureHotkeyResetBtn = document.getElementById('mapCaptureHotkeyResetBtn');
+const mapCaptureHotkeyStatus = document.getElementById('mapCaptureHotkeyStatus');
+
+let recordingTarget = null; // 'overlay' | 'mapCapture' | null
+let currentOverlayHotkey = 'Control+Shift+Y';
+let currentMapCaptureHotkey = 'Control+Shift+M';
+
+let overlayStatusTimer = null;
+let mapCaptureStatusTimer = null;
+
+function formatHotkeyDisplay(hk) {
+  if (!hk) return 'None';
+  return hk
+    .replace(/CommandOrControl/gi, 'Ctrl')
+    .replace(/Control/gi, 'Ctrl')
+    .replace(/\+/g, ' + ');
+}
+
+function showHotkeyStatus(target, message, isError = false) {
+  const statusEl = target === 'mapCapture' ? mapCaptureHotkeyStatus : overlayHotkeyStatus;
+  if (!statusEl) return;
+  if (target === 'mapCapture') {
+    clearTimeout(mapCaptureStatusTimer);
+  } else {
+    clearTimeout(overlayStatusTimer);
+  }
+  statusEl.textContent = message;
+  statusEl.className = 'keybind-status' + (isError ? ' keybind-status--error' : ' keybind-status--success');
+  statusEl.hidden = false;
+  const timer = setTimeout(() => {
+    statusEl.hidden = true;
+  }, isError ? 5000 : 3000);
+  if (target === 'mapCapture') {
+    mapCaptureStatusTimer = timer;
+  } else {
+    overlayStatusTimer = timer;
+  }
+}
+
+function updateHotkeyButtonDisplay(target, hk) {
+  const btn = target === 'mapCapture' ? mapCaptureHotkeyBtn : overlayHotkeyBtn;
+  if (btn) {
+    btn.textContent = formatHotkeyDisplay(hk);
+  }
+}
+
+function cancelHotkeyRecording() {
+  if (!recordingTarget) return;
+  const prevTarget = recordingTarget;
+  recordingTarget = null;
+  if (prevTarget === 'overlay' && overlayHotkeyBtn) {
+    overlayHotkeyBtn.classList.remove('recording');
+    updateHotkeyButtonDisplay('overlay', currentOverlayHotkey);
+  } else if (prevTarget === 'mapCapture' && mapCaptureHotkeyBtn) {
+    mapCaptureHotkeyBtn.classList.remove('recording');
+    updateHotkeyButtonDisplay('mapCapture', currentMapCaptureHotkey);
+  }
+}
+
+function startHotkeyRecording(target) {
+  cancelHotkeyRecording();
+  recordingTarget = target;
+  const btn = target === 'mapCapture' ? mapCaptureHotkeyBtn : overlayHotkeyBtn;
+  const statusEl = target === 'mapCapture' ? mapCaptureHotkeyStatus : overlayHotkeyStatus;
+  if (btn) {
+    btn.classList.add('recording');
+    btn.textContent = 'Press keys...';
+  }
+  if (statusEl) statusEl.hidden = true;
+}
+
+// Convert a DOM KeyboardEvent into an Electron Accelerator string
+function domEventToAccelerator(e) {
+  const modifiers = [];
+  if (e.ctrlKey) modifiers.push('Control');
+  if (e.altKey) modifiers.push('Alt');
+  if (e.shiftKey) modifiers.push('Shift');
+  if (e.metaKey) modifiers.push('Super');
+
+  let key = e.key;
+
+  // If only a modifier was pressed, preview without finalizing
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
+    return null;
+  }
+
+  // Normalize special keys
+  if (/^F\d{1,2}$/i.test(key)) {
+    key = key.toUpperCase();
+  } else if (key === ' ' || e.code === 'Space') {
+    key = 'Space';
+  } else if (key === '`' || e.code === 'Backquote') {
+    key = '`';
+  } else if (key === 'Escape') {
+    return 'Escape';
+  } else if (key.length === 1) {
+    key = key.toUpperCase();
+  } else {
+    // Map common navigation/editing keys
+    const nameMap = {
+      ArrowUp: 'Up',
+      ArrowDown: 'Down',
+      ArrowLeft: 'Left',
+      ArrowRight: 'Right',
+      Enter: 'Return',
+      Delete: 'Delete',
+      Insert: 'Insert',
+      Home: 'Home',
+      End: 'End',
+      PageUp: 'PageUp',
+      PageDown: 'PageDown',
+      Tab: 'Tab',
+      Backspace: 'Backspace',
+    };
+    if (nameMap[key]) {
+      key = nameMap[key];
+    } else {
+      return null;
+    }
+  }
+
+  // Guard: non-function keys (letters, numbers, etc.) must have at least one modifier
+  const isFunctionKey = /^F\d{1,2}$/i.test(key);
+  if (!isFunctionKey && modifiers.length === 0) {
+    return { error: 'Letter/number keys require at least one modifier (Ctrl, Alt, or Shift).' };
+  }
+
+  return { accelerator: [...modifiers, key].join('+') };
+}
+
+// Button click handlers
+overlayHotkeyBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (recordingTarget === 'overlay') {
+    cancelHotkeyRecording();
+  } else {
+    startHotkeyRecording('overlay');
+  }
+});
+
+overlayHotkeyResetBtn?.addEventListener('click', async () => {
+  cancelHotkeyRecording();
+  if (window.settingsAPI?.resetOverlayHotkey) {
+    const resp = await window.settingsAPI.resetOverlayHotkey();
+    if (resp && resp.success) {
+      currentOverlayHotkey = resp.hotkey;
+      updateHotkeyButtonDisplay('overlay', resp.hotkey);
+      showHotkeyStatus('overlay', 'Reset to default (Ctrl+Shift+Y)');
+    } else {
+      showHotkeyStatus('overlay', resp?.error || 'Failed to reset keybind.', true);
+    }
+  }
+});
+
+mapCaptureHotkeyBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (recordingTarget === 'mapCapture') {
+    cancelHotkeyRecording();
+  } else {
+    startHotkeyRecording('mapCapture');
+  }
+});
+
+mapCaptureHotkeyResetBtn?.addEventListener('click', async () => {
+  cancelHotkeyRecording();
+  if (window.settingsAPI?.resetMapCaptureHotkey) {
+    const resp = await window.settingsAPI.resetMapCaptureHotkey();
+    if (resp && resp.success) {
+      currentMapCaptureHotkey = resp.hotkey;
+      updateHotkeyButtonDisplay('mapCapture', resp.hotkey);
+      showHotkeyStatus('mapCapture', 'Reset to default (Ctrl+Shift+M)');
+    } else {
+      showHotkeyStatus('mapCapture', resp?.error || 'Failed to reset keybind.', true);
+    }
+  }
+});
+
+// Window keydown listener for recording either hotkey
+window.addEventListener('keydown', async (e) => {
+  if (!recordingTarget) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const target = recordingTarget;
+  const btn = target === 'mapCapture' ? mapCaptureHotkeyBtn : overlayHotkeyBtn;
+
+  if (e.key === 'Escape') {
+    cancelHotkeyRecording();
+    showHotkeyStatus(target, 'Keybind change canceled.');
+    return;
+  }
+
+  const result = domEventToAccelerator(e);
+  if (!result) {
+    // Just modifier pressed — preview held modifiers
+    const held = [];
+    if (e.ctrlKey) held.push('Ctrl');
+    if (e.altKey) held.push('Alt');
+    if (e.shiftKey) held.push('Shift');
+    if (e.metaKey) held.push('Win');
+    if (btn) btn.textContent = held.length > 0 ? `${held.join(' + ')} + ...` : 'Press keys...';
+    return;
+  }
+
+  if (result.error) {
+    showHotkeyStatus(target, result.error, true);
+    return;
+  }
+
+  const newAccelerator = result.accelerator;
+  recordingTarget = null;
+  if (btn) {
+    btn.classList.remove('recording');
+    btn.textContent = 'Applying...';
+  }
+
+  if (target === 'overlay') {
+    if (window.settingsAPI?.setOverlayHotkey) {
+      const resp = await window.settingsAPI.setOverlayHotkey(newAccelerator);
+      if (resp && resp.success) {
+        currentOverlayHotkey = resp.hotkey;
+        updateHotkeyButtonDisplay('overlay', resp.hotkey);
+        showHotkeyStatus('overlay', 'Keybind updated successfully!');
+      } else {
+        updateHotkeyButtonDisplay('overlay', currentOverlayHotkey);
+        showHotkeyStatus('overlay', resp?.error || 'Failed to register keybind.', true);
+      }
+    } else {
+      updateHotkeyButtonDisplay('overlay', currentOverlayHotkey);
+    }
+  } else if (target === 'mapCapture') {
+    if (window.settingsAPI?.setMapCaptureHotkey) {
+      const resp = await window.settingsAPI.setMapCaptureHotkey(newAccelerator);
+      if (resp && resp.success) {
+        currentMapCaptureHotkey = resp.hotkey;
+        updateHotkeyButtonDisplay('mapCapture', resp.hotkey);
+        showHotkeyStatus('mapCapture', 'Keybind updated successfully!');
+      } else {
+        updateHotkeyButtonDisplay('mapCapture', currentMapCaptureHotkey);
+        showHotkeyStatus('mapCapture', resp?.error || 'Failed to register keybind.', true);
+      }
+    } else {
+      updateHotkeyButtonDisplay('mapCapture', currentMapCaptureHotkey);
+    }
+  }
+});
+
+// Click outside cancel
+window.addEventListener('click', (e) => {
+  if (recordingTarget) {
+    const isOverlayBtn = e.target.closest('#overlayHotkeyBtn');
+    const isMapCaptureBtn = e.target.closest('#mapCaptureHotkeyBtn');
+    if (!isOverlayBtn && !isMapCaptureBtn) {
+      cancelHotkeyRecording();
+    }
+  }
+});
+
+// Initialize hotkeys on startup
+if (window.settingsAPI?.getOverlayHotkey) {
+  window.settingsAPI.getOverlayHotkey().then((res) => {
+    if (res && res.hotkey) {
+      currentOverlayHotkey = res.hotkey;
+      updateHotkeyButtonDisplay('overlay', res.hotkey);
+    }
+  });
+}
+
+if (window.settingsAPI?.onOverlayHotkeyChanged) {
+  window.settingsAPI.onOverlayHotkeyChanged((newHotkey) => {
+    currentOverlayHotkey = newHotkey;
+    updateHotkeyButtonDisplay('overlay', newHotkey);
+  });
+}
+
+if (window.settingsAPI?.getMapCaptureHotkey) {
+  window.settingsAPI.getMapCaptureHotkey().then((res) => {
+    if (res && res.hotkey) {
+      currentMapCaptureHotkey = res.hotkey;
+      updateHotkeyButtonDisplay('mapCapture', res.hotkey);
+    }
+  });
+}
+
+if (window.settingsAPI?.onMapCaptureHotkeyChanged) {
+  window.settingsAPI.onMapCaptureHotkeyChanged((newHotkey) => {
+    currentMapCaptureHotkey = newHotkey;
+    updateHotkeyButtonDisplay('mapCapture', newHotkey);
+  });
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -83,6 +384,7 @@ const views = {
   weapons: document.getElementById('weaponsView'),
   playedWith: document.getElementById('playedWithView'),
   maps: document.getElementById('mapsView'),
+  settings: document.getElementById('settingsView'),
 };
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 let currentView = 'home';
@@ -99,6 +401,8 @@ function switchView(view) {
   if (mhBackdrop) mhBackdrop.hidden = true;
   const pdBackdrop = document.getElementById('playerDetailBackdrop');
   if (pdBackdrop) pdBackdrop.hidden = true;
+  const pfpBackdrop = document.getElementById('playerFullProfileBackdrop');
+  if (pfpBackdrop) pfpBackdrop.hidden = true;
   const mdBackdrop = document.getElementById('matchDetailBackdrop');
   if (mdBackdrop) mdBackdrop.hidden = true;
 
@@ -121,7 +425,12 @@ async function fetchAndRenderHistory(kind) {
   const hasAny = matches.length > 0;
   emptyEl.hidden = hasAny;
   panelEl.hidden = !hasAny;
-  if (hasAny) renderMatchRows(bodyEl, matches);
+  if (hasAny) {
+    const tagged = kind === 'other'
+      ? matches.map((m) => ({ ...m, source: m.is2v2 ? '2v2' : 'other' }))
+      : matches;
+    renderMatchRows(bodyEl, tagged, { tagSource: kind === 'other' });
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -174,7 +483,7 @@ function render(data) {
     // the two lists already came in at individually.
     const tagged = [
       ...rankedMatches.map((m) => ({ ...m, source: 'ranked' })),
-      ...otherMatches.map((m) => ({ ...m, source: 'other' })),
+      ...otherMatches.map((m) => ({ ...m, source: m.is2v2 ? '2v2' : 'other' })),
     ];
     tagged.sort((a, b) => b.timestamp - a.timestamp);
     renderMatchRows(recentMatchesBody, tagged.slice(0, 8), { tagSource: true });
@@ -875,17 +1184,279 @@ async function openPlayerDetail(accountId) {
   }
 }
 
+const pdViewFullBtn = document.getElementById('pdViewFullBtn');
+const pdSteamBtn = document.getElementById('pdSteamBtn');
+const pdCloseBtn = document.getElementById('pdCloseBtn');
+
+pdViewFullBtn?.addEventListener('click', () => {
+  if (currentPdAccountId) {
+    openFullPlayerProfile(currentPdAccountId);
+  }
+});
+
 pdSteamBtn?.addEventListener('click', () => {
   if (currentPdAccountId) {
     window.hubAPI.openSteamProfile(currentPdAccountId);
   }
 });
 
-document.getElementById('pdCloseBtn')?.addEventListener('click', () => {
+pdCloseBtn?.addEventListener('click', () => {
   playerDetailBackdrop.hidden = true;
 });
 playerDetailBackdrop?.addEventListener('click', (e) => {
   if (e.target === playerDetailBackdrop) playerDetailBackdrop.hidden = true;
+});
+
+// ---------------------------------------------------------------------
+// Player Full Profile Modal
+// ---------------------------------------------------------------------
+
+const playerFullProfileBackdrop = document.getElementById('playerFullProfileBackdrop');
+const pfpAvatar = document.getElementById('pfpAvatar');
+const pfpKicker = document.getElementById('pfpKicker');
+const pfpName = document.getElementById('pfpName');
+const pfpAccountId = document.getElementById('pfpAccountId');
+const pfpSteamBtn = document.getElementById('pfpSteamBtn');
+const pfpCloseBtn = document.getElementById('pfpCloseBtn');
+
+const pfpRating = document.getElementById('pfpRating');
+const pfpRatingSub = document.getElementById('pfpRatingSub');
+const pfpKdr = document.getElementById('pfpKdr');
+const pfpKdaSub = document.getElementById('pfpKdaSub');
+const pfpAdr = document.getElementById('pfpAdr');
+const pfpKastSub = document.getElementById('pfpKastSub');
+const pfpRecordLabel1 = document.getElementById('pfpRecordLabel1');
+const pfpRecordVal1 = document.getElementById('pfpRecordVal1');
+const pfpRecordSub1 = document.getElementById('pfpRecordSub1');
+const pfpRecordLabel2 = document.getElementById('pfpRecordLabel2');
+const pfpRecordVal2 = document.getElementById('pfpRecordVal2');
+const pfpRecordSub2 = document.getElementById('pfpRecordSub2');
+
+const pfpSideRoundsSub = document.getElementById('pfpSideRoundsSub');
+const pfpAttackAdr = document.getElementById('pfpAttackAdr');
+const pfpAtkBar = document.getElementById('pfpAtkBar');
+const pfpDefenseAdr = document.getElementById('pfpDefenseAdr');
+const pfpDefBar = document.getElementById('pfpDefBar');
+
+const pfpOpeningDuelRate = document.getElementById('pfpOpeningDuelRate');
+const pfpOpeningDuelSub = document.getElementById('pfpOpeningDuelSub');
+const pfpHeadshotRate = document.getElementById('pfpHeadshotRate');
+const pfpHeadshotSub = document.getElementById('pfpHeadshotSub');
+const pfpTeamDamage = document.getElementById('pfpTeamDamage');
+
+const pfpWeaponsBody = document.getElementById('pfpWeaponsBody');
+const pfpHistoryTitle = document.getElementById('pfpHistoryTitle');
+const pfpHistoryCount = document.getElementById('pfpHistoryCount');
+const pfpMatchesBody = document.getElementById('pfpMatchesBody');
+
+let currentPfpAccountId = null;
+
+async function openFullPlayerProfile(accountId) {
+  currentPfpAccountId = accountId;
+
+  // Close the quick reference card so modals don't stack awkwardly
+  if (playerDetailBackdrop) playerDetailBackdrop.hidden = true;
+
+  if (pfpAvatar) {
+    pfpAvatar.src = '';
+    pfpAvatar.hidden = true;
+  }
+
+  const profile = await window.hubAPI.getFullPlayerProfile(accountId);
+
+  if (!profile) {
+    pfpName.textContent = `Player #${accountId.slice(-4)}`;
+    pfpAccountId.textContent = `Steam ID: ${accountId}`;
+    pfpKicker.textContent = 'Player Dossier';
+    pfpRating.textContent = '1.00';
+    pfpRatingSub.textContent = 'Estimated skill';
+    pfpKdr.textContent = '0.00';
+    pfpKdaSub.textContent = '0K - 0D - 0A';
+    pfpAdr.textContent = '0';
+    pfpKastSub.textContent = '0% KAST';
+    pfpRecordLabel1.textContent = 'Teammate Record';
+    pfpRecordVal1.textContent = '0g · 0% WR';
+    pfpRecordSub1.textContent = '0W - 0L';
+    pfpRecordLabel2.textContent = 'Opponent Record';
+    pfpRecordVal2.textContent = '0g · 0% WR';
+    pfpRecordSub2.textContent = '0W - 0L';
+
+    pfpSideRoundsSub.textContent = '0 Attack / 0 Defense Rnds';
+    pfpAttackAdr.textContent = '0 ADR';
+    if (pfpAtkBar) pfpAtkBar.style.width = '0%';
+    pfpDefenseAdr.textContent = '0 ADR';
+    if (pfpDefBar) pfpDefBar.style.width = '0%';
+
+    pfpOpeningDuelRate.textContent = '0%';
+    pfpOpeningDuelSub.textContent = '0 won / 0 duels';
+    pfpHeadshotRate.textContent = '0%';
+    pfpHeadshotSub.textContent = '0 HS / 0 hits';
+    pfpTeamDamage.textContent = '0';
+
+    pfpWeaponsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px">No weapon data recorded for this player</td></tr>';
+    pfpHistoryTitle.textContent = 'Mutual Match History';
+    pfpHistoryCount.textContent = '0 matches';
+    pfpMatchesBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:16px">No mutual matches recorded</td></tr>';
+  } else {
+    pfpName.textContent = profile.name;
+    pfpAccountId.textContent = `Steam ID: ${profile.accountId}`;
+    pfpKicker.textContent = profile.isSelf ? 'Career Dossier' : 'Player Dossier';
+
+    pfpRating.textContent = profile.dplRating.toFixed(2);
+    pfpRatingSub.textContent = profile.isSelf ? 'Career Rating' : 'Estimated skill';
+    pfpKdr.textContent = profile.kdr.toFixed(2);
+    pfpKdaSub.textContent = `${profile.kills}K - ${profile.deaths}D - ${profile.assists}A`;
+    pfpAdr.textContent = profile.adr;
+    pfpKastSub.textContent = `${profile.kast}% KAST`;
+
+    if (profile.isSelf) {
+      pfpRecordLabel1.textContent = 'Career Record';
+      pfpRecordVal1.textContent = `${profile.totalWins}W - ${profile.totalLosses}L`;
+      pfpRecordSub1.textContent = `${profile.overallWinRate}% Win Rate`;
+      pfpRecordLabel2.textContent = 'Total Matches';
+      pfpRecordVal2.textContent = `${profile.totalMatches} matches`;
+      pfpRecordSub2.textContent = `${profile.totalTies} tied`;
+      pfpHistoryTitle.textContent = 'Personal Match History';
+    } else {
+      pfpRecordLabel1.textContent = 'Teammate Record';
+      pfpRecordVal1.textContent = `${profile.matchesTogether}g · ${profile.winRateTogether}% WR`;
+      pfpRecordSub1.textContent = `${profile.winsTogether}W - ${profile.lossesTogether}L`;
+      pfpRecordLabel2.textContent = 'Opponent Record';
+      pfpRecordVal2.textContent = `${profile.matchesAgainst}g · ${profile.winRateAgainst}% WR`;
+      pfpRecordSub2.textContent = `${profile.winsAgainst}W - ${profile.lossesAgainst}L`;
+      pfpHistoryTitle.textContent = 'Mutual Match History';
+    }
+
+    // Side ADR
+    pfpSideRoundsSub.textContent = `${profile.attackRounds} Attack / ${profile.defenseRounds} Defense Rnds`;
+    pfpAttackAdr.textContent = `${profile.attackAdr} ADR`;
+    pfpDefenseAdr.textContent = `${profile.defenseAdr} ADR`;
+
+    const maxAdr = Math.max(profile.attackAdr, profile.defenseAdr, 150);
+    if (pfpAtkBar) pfpAtkBar.style.width = `${Math.min(100, Math.round((profile.attackAdr / maxAdr) * 100))}%`;
+    if (pfpDefBar) pfpDefBar.style.width = `${Math.min(100, Math.round((profile.defenseAdr / maxAdr) * 100))}%`;
+
+    // Opening Duels & Headshots & FF
+    pfpOpeningDuelRate.textContent = `${profile.openingDuels.winRate}%`;
+    pfpOpeningDuelSub.textContent = `${profile.openingDuels.won} won / ${profile.openingDuels.involved} duels`;
+    pfpHeadshotRate.textContent = `${profile.headshots.hsPercent}%`;
+    pfpHeadshotSub.textContent = `${profile.headshots.headshots} HS / ${profile.headshots.hits} hits`;
+    pfpTeamDamage.textContent = profile.teamDamage.toLocaleString();
+
+    // Weapons
+    if (!profile.weapons || profile.weapons.length === 0) {
+      pfpWeaponsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px">No weapon data recorded for this player</td></tr>';
+    } else {
+      pfpWeaponsBody.innerHTML = profile.weapons.map((w) => {
+        return `<tr>
+          <td style="font-weight:600;color:var(--text-bright)">${escapeHtml(w.label)}</td>
+          <td style="color:var(--text-muted)">${escapeHtml(w.category)}</td>
+          <td style="text-align:right;font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--text-bright)">${w.kills}</td>
+          <td style="text-align:right;color:var(--text-dim)">${w.damage.toLocaleString()}</td>
+          <td style="text-align:right;color:var(--text-dim)">${w.kpr.toFixed(2)}</td>
+          <td style="text-align:right;color:var(--text-dim)">${w.hits}</td>
+          <td style="text-align:right;font-weight:600;color:var(--text-bright)">${w.hsPercent}%</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Match History
+    pfpHistoryCount.textContent = `${profile.matchHistory.length} matches`;
+    if (!profile.matchHistory || profile.matchHistory.length === 0) {
+      pfpMatchesBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:16px">No mutual matches recorded</td></tr>';
+    } else {
+      pfpMatchesBody.innerHTML = profile.matchHistory.map((m) => {
+        let resultBadge = '';
+        if (m.tied) {
+          resultBadge = '<span class="pfp-result-badge pfp-result-badge--tie">TIE</span>';
+        } else if (m.playerWon) {
+          resultBadge = '<span class="pfp-result-badge pfp-result-badge--win">WON</span>';
+        } else {
+          resultBadge = '<span class="pfp-result-badge pfp-result-badge--loss">LOST</span>';
+        }
+
+        let modeBadge = '';
+        if (m.is2v2) {
+          modeBadge = '<span class="source-badge source-badge--2v2" style="font-size:10px;padding:1px 5px">2v2</span>';
+        } else if (m.isRanked) {
+          modeBadge = '<span class="source-badge source-badge--ranked" style="font-size:10px;padding:1px 5px">RANKED</span>';
+        } else {
+          modeBadge = '<span class="source-badge source-badge--other" style="font-size:10px;padding:1px 5px">OTHER</span>';
+        }
+
+        let relText = 'Self';
+        let relColor = 'var(--text-dim)';
+        if (!m.isSelf) {
+          if (m.isTeammate) {
+            relText = 'Teammate';
+            relColor = 'var(--accent)';
+          } else if (m.isOpponent) {
+            relText = 'Opponent';
+            relColor = 'var(--rival)';
+          } else {
+            relText = 'Observed';
+            relColor = 'var(--text-muted)';
+          }
+        }
+
+        const scoreText = (m.myScore !== undefined && m.oppScore !== undefined) ? `${m.myScore} - ${m.oppScore}` : '—';
+        const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
+
+        return `<tr class="pfp-match-row" data-match-id="${escapeHtml(m.matchId)}" title="Click to view match scoreboard">
+          <td>${resultBadge}</td>
+          <td>${modeBadge}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(m.matchup)} (${escapeHtml(m.mapLabel)})">
+            <span style="color:var(--text-bright);font-weight:600">${escapeHtml(m.matchup)}</span>
+            <span style="font-size:11px;color:var(--text-muted);display:block">${escapeHtml(m.mapLabel)}</span>
+          </td>
+          <td style="text-align:center;font-weight:600;font-size:11px;color:${relColor}">${relText}</td>
+          <td style="text-align:center;font-family:var(--font-display);font-weight:700">${scoreText}</td>
+          <td style="text-align:right;font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-bright)">${m.kills} - ${m.deaths} - ${m.assists}</td>
+          <td style="text-align:right;color:var(--text-dim)">${m.damage.toLocaleString()}</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted)">${dateStr}</td>
+        </tr>`;
+      }).join('');
+
+      pfpMatchesBody.querySelectorAll('.pfp-match-row').forEach((row) => {
+        row.addEventListener('click', () => {
+          const matchId = row.dataset.matchId;
+          if (matchId) {
+            playerFullProfileBackdrop.hidden = true;
+            openMatchDetail(matchId);
+          }
+        });
+      });
+    }
+  }
+
+  playerFullProfileBackdrop.hidden = false;
+
+  if (window.hubAPI?.getSteamAvatar && accountId) {
+    window.hubAPI.getSteamAvatar(accountId).then((avatarUrl) => {
+      if (avatarUrl && pfpAvatar && currentPfpAccountId === accountId) {
+        pfpAvatar.src = avatarUrl;
+        pfpAvatar.hidden = false;
+      }
+    });
+  }
+}
+
+function closeFullPlayerProfile() {
+  if (playerFullProfileBackdrop) {
+    playerFullProfileBackdrop.hidden = true;
+  }
+  currentPfpAccountId = null;
+}
+
+pfpSteamBtn?.addEventListener('click', () => {
+  if (currentPfpAccountId) {
+    window.hubAPI.openSteamProfile(currentPfpAccountId);
+  }
+});
+
+pfpCloseBtn?.addEventListener('click', closeFullPlayerProfile);
+playerFullProfileBackdrop?.addEventListener('click', (e) => {
+  if (e.target === playerFullProfileBackdrop) closeFullPlayerProfile();
 });
 
 // CSV Export Handlers — one download helper shared by Home's export button
@@ -973,7 +1544,12 @@ function renderWeaponsTable() {
   // --- Filter by Category & Search Query ---
   let filtered = weapons;
   if (selectedCategory !== 'all') {
-    filtered = filtered.filter((w) => (w.category ?? '').toLowerCase().includes(selectedCategory.toLowerCase()));
+    filtered = filtered.filter((w) => {
+      const cat = (w.category ?? '').toLowerCase();
+      const sel = selectedCategory.toLowerCase();
+      if ((sel === 'throwable' || sel === 'throwables') && (cat.includes('throwable') || cat.includes('explosive'))) return true;
+      return cat.includes(sel);
+    });
   }
   if (searchFilterQuery.trim()) {
     const q = searchFilterQuery.trim().toLowerCase();
@@ -982,6 +1558,12 @@ function renderWeaponsTable() {
 
   // --- Sort Weapons ---
   const sorted = [...filtered].sort((a, b) => {
+    if (a.unused !== b.unused) {
+      return a.unused ? 1 : -1;
+    }
+    if (a.unused) {
+      return a.label.localeCompare(b.label);
+    }
     const av = a[weaponSortKey];
     const bv = b[weaponSortKey];
     if (av === null && bv === null) return 0;
@@ -1001,9 +1583,20 @@ function renderWeaponsTable() {
   } else {
     for (const w of sorted) {
       const tr = document.createElement('tr');
-      const hs = w.headshots === null ? '<span class="no-data">—</span>' : w.headshots;
-      const hsPct = w.hsPercent === null ? '<span class="no-data">—</span>' : `<span class="hs-badge">${w.hsPercent}%</span>`;
-      const killsPct = Math.round((w.kills / maxKills) * 100);
+      if (w.unused) {
+        tr.className = 'weapon-row--unused';
+      }
+      const hs = w.headshots === null || w.unused ? '<span class="no-data">—</span>' : w.headshots;
+      const hsPct = w.hsPercent === null || w.unused ? '<span class="no-data">—</span>' : `<span class="hs-badge">${w.hsPercent}%</span>`;
+      const killsPct = w.unused ? 0 : Math.round((w.kills / maxKills) * 100);
+      const kprDisplay = w.unused ? '<span class="no-data">—</span>' : w.killsPerRound.toFixed(2);
+      const unusedBadge = w.unused ? '<span class="weapon-unused-pill">UNUSED</span>' : '';
+      const killsDisplay = w.unused
+        ? `<span class="no-data" style="font-family:var(--font-display);font-size:15px;color:var(--text-faint)">—</span>`
+        : `<span style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--accent)">${w.kills}</span>`;
+      const deathsDisplay = w.unused && w.deaths === 0
+        ? '<span class="no-data">—</span>'
+        : `<span style="font-family:var(--font-display);font-size:16px;font-weight:600;color:${w.deaths > 0 ? 'var(--loss)' : 'var(--text-muted)'}">${w.deaths}</span>`;
 
       const specsList = [];
       if (w.fireType && w.fireType !== 'Unknown') specsList.push(w.fireType);
@@ -1012,7 +1605,7 @@ function renderWeaponsTable() {
       const specsStr = specsList.length > 0 ? specsList.join(' · ') : 'Standard Weapon';
       const wikiUrl = w.wikiUrl || `https://dueprocess.fandom.com/wiki/${encodeURIComponent(w.label)}`;
       const imgHtml = w.imageUrl
-        ? `<img src="${w.imageUrl}" alt="${escapeHtml(w.label)}" style="width:68px;height:38px;object-fit:contain;background:rgba(0,0,0,0.35);padding:2px;border:1px solid var(--border-soft);border-radius:3px">`
+        ? `<img src="${w.imageUrl}" alt="${escapeHtml(w.label)}" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';" style="width:68px;height:38px;object-fit:contain;background:rgba(0,0,0,0.35);padding:2px;border:1px solid var(--border-soft);border-radius:3px"><div style="display:none;width:68px;height:38px;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);align-items:center;justify-content:center;color:var(--text-faint);font-size:10px;font-family:var(--font-display)">WPN</div>`
         : `<div style="width:68px;height:38px;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:10px;font-family:var(--font-display)">WPN</div>`;
 
       tr.innerHTML = `
@@ -1022,7 +1615,10 @@ function renderWeaponsTable() {
               ${imgHtml}
             </a>
             <div class="weapon-cell">
-              <span class="weapon-cat">${escapeHtml((w.category ?? 'WEAPON').toUpperCase())}</span>
+              <div>
+                <span class="weapon-cat">${escapeHtml((w.category ?? 'WEAPON').toUpperCase())}</span>
+                ${unusedBadge}
+              </div>
               <a href="${wikiUrl}" class="weapon-wiki-btn" data-wikiurl="${wikiUrl}" title="View ${escapeHtml(w.label)} on Fandom Wiki ↗" style="color:var(--text-bright);text-decoration:none">
                 <span class="weapon-title" style="color:var(--text-bright);font-weight:700">${escapeHtml(w.label)} <span style="font-size:11px;color:var(--accent);margin-left:2px">↗</span></span>
               </a>
@@ -1032,14 +1628,14 @@ function renderWeaponsTable() {
         </td>
         <td style="text-align:center">
           <div class="kills-col">
-            <span style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--accent)">${w.kills}</span>
+            ${killsDisplay}
             <div class="kills-bar"><span style="width:${killsPct}%"></span></div>
           </div>
         </td>
-        <td style="text-align:center;font-family:var(--font-display);font-size:16px;font-weight:600;color:${w.deaths > 0 ? 'var(--loss)' : 'var(--text-muted)'}">${w.deaths}</td>
+        <td style="text-align:center">${deathsDisplay}</td>
         <td style="text-align:center;font-family:var(--font-display);font-size:15px">${hs}</td>
         <td style="text-align:center">${hsPct}</td>
-        <td style="text-align:center;font-family:var(--font-display);font-size:15px;font-weight:600">${w.killsPerRound.toFixed(2)}</td>
+        <td style="text-align:center;font-family:var(--font-display);font-size:15px;font-weight:600">${kprDisplay}</td>
       `;
 
       tr.querySelectorAll('.weapon-wiki-btn').forEach((btn) => {
@@ -1096,9 +1692,9 @@ weaponSearchInput.addEventListener('input', (e) => {
 });
 
 // Shared by Home's unified feed and both History views — same row shape
-// (result/map/score/K-D-A/played/delete) everywhere; only Home tags rows
-// with a RANKED/OTHER badge (opts.tagSource), since the two History views
-// are already scoped to one archive each.
+// (result/map/score/K-D-A/played/delete) everywhere; Home and Other History
+// tag rows with a RANKED/2v2/OTHER badge (opts.tagSource), since Home mixes
+// all sources and Other History contains both 2v2 and casual/custom modes.
 function renderMatchRows(tbody, matches, opts = {}) {
   tbody.innerHTML = '';
   for (const m of matches) {
@@ -1107,8 +1703,11 @@ function renderMatchRows(tbody, matches, opts = {}) {
     tr.title = 'Click for the full scoreboard';
     const resultClass = m.tied ? 'result-tie' : m.won ? 'result-win' : 'result-loss';
     const resultText = m.tied ? 'TIE' : m.won ? 'WIN' : 'LOSS';
+    const is2v2Match = m.source === '2v2' || m.is2v2;
+    const badgeClass = m.source === 'ranked' ? 'ranked' : is2v2Match ? '2v2' : 'other';
+    const badgeText = m.source === 'ranked' ? 'RANKED' : is2v2Match ? '2v2' : 'OTHER';
     const sourceBadge = opts.tagSource
-      ? `<span class="source-badge source-badge--${m.source}">${m.source === 'ranked' ? 'RANKED' : 'OTHER'}</span>`
+      ? `<span class="source-badge source-badge--${badgeClass}">${badgeText}</span>`
       : '';
     const myScoreClass = m.tied ? '' : m.won ? '' : 'result-loss';
     const oppScoreClass = m.tied ? '' : m.won ? 'result-win' : '';
@@ -1123,22 +1722,24 @@ function renderMatchRows(tbody, matches, opts = {}) {
     tr.addEventListener('click', () => openMatchDetail(m.matchId));
     tr.querySelector('.delete-match-btn').addEventListener('click', (e) => {
       e.stopPropagation(); // don't also trigger the row's open-detail click
-      confirmAndDeleteMatch(m.matchId, m.mapLabel);
+      const matchup = m.matchup || `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`;
+      confirmAndDeleteMatch(m.matchId, matchup);
     });
     tbody.appendChild(tr);
   }
 }
 
-async function confirmAndDeleteMatch(matchId, mapLabel) {
-  const label = mapLabel ? ` on ${mapLabel}` : '';
+async function confirmAndDeleteMatch(matchId, matchup) {
+  const label = matchup ? ` (${matchup})` : '';
   const ok = window.confirm(`Delete this match${label}? This can't be undone.`);
-  if (!ok) return;
+  if (!ok) return false;
   await window.hubAPI.deleteMatch(matchId);
   // No manual re-render call needed for Home/stat data: main.js's delete
   // handler pushes a fresh hub:update (totals/lists re-derived from the
   // archive) on success, and render() above re-fetches whichever history
   // view is currently open. If the deleted row was IN a history view,
   // that re-fetch picks up the removal too.
+  return true;
 }
 
 // ---------------------------------------------------------------------
@@ -1154,6 +1755,7 @@ const matchDetailBackdrop = document.getElementById('matchDetailBackdrop');
 const matchDetailTeams = document.getElementById('matchDetailTeams');
 const matchDetailMeta = document.getElementById('matchDetailMeta');
 let matchDetailCurrentId = null;
+let matchDetailCurrentMatchup = null;
 
 const TILESET_ICONS = {
   factory: 'assets/tilesets/factory.webp',
@@ -1176,6 +1778,7 @@ async function openMatchDetail(matchId) {
   if (!match) return; // shouldn't happen (row came from an archive itself), but don't render a broken panel if it does
 
   matchDetailCurrentId = matchId;
+  matchDetailCurrentMatchup = match.matchup || `${match.team0Name || 'Blue Team'} vs ${match.team1Name || 'Orange Team'}`;
 
   const matchDetailMapContainer = document.getElementById('matchDetailMapContainer');
   if (matchDetailMapContainer) {
@@ -1345,8 +1948,10 @@ async function openMatchDetail(matchId) {
     }
   }
 
+  const modeClass = match.isRanked ? 'ranked' : match.is2v2 ? '2v2' : 'other';
+  const modeText = match.isRanked ? 'RANKED' : match.is2v2 ? '2v2' : 'OTHER';
   const inferredNote = match.inferred ? ' · INFERRED (no matchEnded seen)' : '';
-  matchDetailMeta.textContent = `${match.roundCount} rounds${inferredNote}`;
+  matchDetailMeta.innerHTML = `<span class="source-badge source-badge--${modeClass}" style="margin-left:0;margin-right:6px">${modeText}</span>${match.roundCount} rounds${inferredNote}`;
   renderScoreboardTeams(matchDetailTeams, {
     finalScore: match.finalScore,
     teams: match.teams,
@@ -1362,6 +1967,7 @@ async function openMatchDetail(matchId) {
 function closeMatchDetail() {
   matchDetailBackdrop.hidden = true;
   matchDetailCurrentId = null;
+  matchDetailCurrentMatchup = null;
 }
 
 // Single delegated listener on the backdrop — never on #matchDetailClose
@@ -1372,9 +1978,8 @@ function closeMatchDetail() {
 matchDetailBackdrop.addEventListener('click', async (e) => {
   if (e.target.closest('#matchDetailDelete')) {
     if (!matchDetailCurrentId) return;
-    const ok = window.confirm("Delete this match? This can't be undone.");
-    if (ok) {
-      await window.hubAPI.deleteMatch(matchDetailCurrentId);
+    const deleted = await confirmAndDeleteMatch(matchDetailCurrentId, matchDetailCurrentMatchup);
+    if (deleted) {
       closeMatchDetail();
     }
     return;
@@ -1384,7 +1989,20 @@ matchDetailBackdrop.addEventListener('click', async (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !matchDetailBackdrop.hidden) closeMatchDetail();
+  if (e.key === 'Escape') {
+    if (playerFullProfileBackdrop && !playerFullProfileBackdrop.hidden) {
+      closeFullPlayerProfile();
+      return;
+    }
+    if (playerDetailBackdrop && !playerDetailBackdrop.hidden) {
+      playerDetailBackdrop.hidden = true;
+      return;
+    }
+    if (matchDetailBackdrop && !matchDetailBackdrop.hidden) {
+      closeMatchDetail();
+      return;
+    }
+  }
 });
 
 function renderTopWeapons(weapons) {

@@ -173,6 +173,30 @@
   table.sortable thead th[data-sort].sort-active { color: var(--accent); }
   table.sortable thead th[data-sort] .sort-arrow { display: inline-block; margin-left: 4px; opacity: 0.7; }
   #weaponsBody td.no-data { color: var(--text-faint); }
+  #weaponsBody tr.weapon-row--unused {
+    opacity: 0.38;
+    filter: saturate(0.7);
+    transition: opacity 0.15s ease, filter 0.15s ease;
+  }
+  #weaponsBody tr.weapon-row--unused:hover {
+    opacity: 0.85;
+    filter: saturate(1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .weapon-unused-pill {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 0 4px;
+    border-radius: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+    color: var(--text-muted);
+    border: 1px solid var(--border-soft);
+    background: rgba(255, 255, 255, 0.03);
+  }
 
   /* Weapons tab redesign styles */
   .weapons-summary-grid {
@@ -552,8 +576,8 @@
     text-decoration: underline;
   }
 
-  /* Player Detail Modal & Map History Modal */
-  #playerDetailBackdrop, #mapHistoryBackdrop, #mapScreenshotPreviewBackdrop {
+  /* Player Detail Modal, Player Full Profile & Map History Modal */
+  #playerDetailBackdrop, #playerFullProfileBackdrop, #mapHistoryBackdrop, #mapScreenshotPreviewBackdrop {
     position: fixed;
     inset: 0;
     background: rgba(var(--backdrop-rgb), 0.75);
@@ -563,8 +587,241 @@
     padding: 40px;
     z-index: 20;
   }
-  #playerDetailBackdrop[hidden], #mapHistoryBackdrop[hidden], #mapScreenshotPreviewBackdrop[hidden] {
+  #playerDetailBackdrop[hidden], #playerFullProfileBackdrop[hidden], #mapHistoryBackdrop[hidden], #mapScreenshotPreviewBackdrop[hidden] {
     display: none !important;
+  }
+
+  /* Player Full Profile Modal Styles */
+  #playerFullProfileCard {
+    width: 920px;
+    max-width: 95vw;
+    max-height: 90vh;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-sizing: border-box;
+  }
+  .pfp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .pfp-identity {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .pfp-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    object-fit: cover;
+    background: rgba(var(--tint-rgb), 0.05);
+    flex-shrink: 0;
+  }
+  .pfp-name {
+    margin: 4px 0 0;
+    font-family: var(--font-display);
+    font-size: 28px;
+    text-transform: uppercase;
+    color: var(--text-bright);
+    line-height: 1.1;
+  }
+  .pfp-account-id {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    margin-top: 2px;
+  }
+  .pfp-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .pfp-action-btn {
+    background: none;
+    border: 1px solid var(--border-soft);
+    color: var(--text-bright);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s ease;
+  }
+  .pfp-action-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent-bright);
+    background: rgba(var(--accent-rgb), 0.08);
+  }
+  .pfp-close-btn {
+    background: none;
+    border: 1px solid var(--border-soft);
+    color: var(--text-dim);
+    font-family: var(--font-display);
+    font-size: 13px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .pfp-close-btn:hover {
+    border-color: var(--loss);
+    color: var(--loss-bright);
+  }
+  .pfp-scroll-content {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-right: 4px;
+  }
+  .pfp-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .pfp-section {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .pfp-combat-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .pfp-combat-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pfp-combat-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .pfp-adr-split-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pfp-adr-bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pfp-adr-side-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-family: var(--font-display);
+  }
+  .pfp-side-tag {
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .pfp-side-tag--atk {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.12);
+  }
+  .pfp-side-tag--def {
+    color: var(--loss-vivid);
+    background: rgba(var(--loss-vivid-rgb), 0.12);
+  }
+  .pfp-side-val {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-bright);
+  }
+  .pfp-bar-track {
+    height: 10px;
+    background: rgba(var(--tint-rgb), 0.08);
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+  }
+  .pfp-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+  }
+  .pfp-bar-fill--atk {
+    background: var(--accent);
+  }
+  .pfp-bar-fill--def {
+    background: var(--loss-vivid);
+  }
+  .pfp-combat-metrics-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .pfp-metric-item {
+    background: rgba(var(--tint-rgb), 0.03);
+    border: 1px solid var(--border-soft);
+    padding: 14px;
+    border-radius: 4px;
+  }
+  .pfp-metric-val {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin: 4px 0;
+  }
+  .pfp-table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .pfp-table-wrapper th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-raised);
+    z-index: 1;
+  }
+  .pfp-match-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .pfp-match-row:hover {
+    background: rgba(var(--accent-rgb), 0.08);
+  }
+  .pfp-result-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 2px;
+    font-family: var(--font-display);
+    letter-spacing: 0.06em;
+  }
+  .pfp-result-badge--win {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+  .pfp-result-badge--loss {
+    color: #fff;
+    background: var(--loss);
+  }
+  .pfp-result-badge--tie {
+    color: var(--text-dim);
+    background: var(--border-soft);
   }
   #mapScreenshotPreviewImg {
     width: 100%;
@@ -642,6 +899,7 @@
     vertical-align: middle;
   }
   .source-badge--ranked { color: var(--accent); border: 1px solid var(--accent); }
+  .source-badge--2v2 { color: var(--rival); border: 1px solid var(--rival); background: rgba(var(--rival-rgb), 0.08); }
   .source-badge--other { color: var(--text-muted); border: 1px solid var(--text-muted); }
 
   #rankedHistoryView .panel, #otherHistoryView .panel { max-width: 900px; }
@@ -771,14 +1029,8 @@
       <div class="nav-item" data-view="weapons"><span class="nav-dot"></span>Weapons</div>
       <div class="nav-item" data-view="playedWith"><span class="nav-dot"></span>Played With</div>
       <div class="nav-item" data-view="maps"><span class="nav-dot"></span>Maps</div>
+      <div class="nav-item" data-view="settings"><span class="nav-dot"></span>Settings</div>
     </nav>
-    <div style="padding:0 22px;display:flex;flex-direction:column;gap:10px">
-      <div class="kicker">Theme</div>
-      <div class="category-filters" id="themeToggle">
-        <button class="cat-pill" data-theme-choice="dark">Dark</button>
-        <button class="cat-pill" data-theme-choice="light">Light</button>
-      </div>
-    </div>
     <div class="log-source">
       <div class="kicker">Log source</div>
       <div class="panel" style="padding:12px">
@@ -961,7 +1213,9 @@
             <button class="cat-pill" data-cat="Shotgun">Shotguns</button>
             <button class="cat-pill" data-cat="Handgun">Pistols</button>
             <button class="cat-pill" data-cat="Sniper Rifle">Snipers</button>
-            <button class="cat-pill" data-cat="Explosive">Explosives</button>
+            <button class="cat-pill" data-cat="LMG">LMGs</button>
+            <button class="cat-pill" data-cat="Throwable">Throwables</button>
+            <button class="cat-pill" data-cat="Equipment">Equipment</button>
           </div>
           <div class="weapon-search-box">
             <input type="text" id="weaponSearchInput" placeholder="Filter weapon by name..." />
@@ -1142,6 +1396,74 @@
         </div>
       </div>
     </div>
+
+    <!-- Settings View -->
+    <div id="settingsView" hidden>
+      <header class="page-head">
+        <div>
+          <div class="kicker">Configuration · Preferences</div>
+          <h1>Settings</h1>
+        </div>
+      </header>
+
+      <div class="settings-layout" style="display:flex;flex-direction:column;gap:24px;margin-top:24px;max-width:860px">
+        <!-- Appearance & Theme Section -->
+        <div class="panel" style="padding:22px;display:flex;flex-direction:column;gap:14px">
+          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
+          <div>
+            <div class="kicker">Visual Styling</div>
+            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:0.06em;text-transform:uppercase">Appearance</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Select your interface visual theme. The theme is applied instantly across the Tracker Hub and the In-Game Overlay.</div>
+          </div>
+          <div class="category-filters" id="themeToggle" style="margin-top:4px">
+            <button class="cat-pill" data-theme-choice="dark">Dark Theme</button>
+            <button class="cat-pill" data-theme-choice="light">Light Theme</button>
+          </div>
+        </div>
+
+        <!-- Keybinds Section -->
+        <div class="panel" style="padding:22px;display:flex;flex-direction:column;gap:20px">
+          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
+          <div>
+            <div class="kicker">Global Shortcuts</div>
+            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:0.06em;text-transform:uppercase">Keybinds & Controls</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Configure hotkeys for in-game HUDs and screen captures. These hotkeys operate globally while Due Process is running.</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <!-- Overlay HUD Keybind Card -->
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--text-bright);letter-spacing:0.06em;text-transform:uppercase">Overlay HUD Toggle</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.4">Shows or hides the transparent live scoreboard HUD over Due Process.</div>
+              </div>
+              <div class="keybind-box" style="margin-top:auto">
+                <button type="button" class="keybind-btn" id="overlayHotkeyBtn" title="Click to record a new keybind">Ctrl+Shift+Y</button>
+                <button type="button" class="keybind-reset-btn" id="overlayHotkeyResetBtn" title="Reset to default (Ctrl+Shift+Y)">↺</button>
+              </div>
+              <div class="keybind-status" id="overlayHotkeyStatus" hidden></div>
+            </div>
+
+            <!-- Map Capture Keybind Card -->
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--text-bright);letter-spacing:0.06em;text-transform:uppercase">Map Planning Capture</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.4">Captures a reference screenshot of the round's layout during planning.</div>
+              </div>
+              <div class="keybind-box" style="margin-top:auto">
+                <button type="button" class="keybind-btn" id="mapCaptureHotkeyBtn" title="Click to record a new keybind">Ctrl+Shift+M</button>
+                <button type="button" class="keybind-reset-btn" id="mapCaptureHotkeyResetBtn" title="Reset to default (Ctrl+Shift+M)">↺</button>
+              </div>
+              <div class="keybind-status" id="mapCaptureHotkeyStatus" hidden></div>
+            </div>
+          </div>
+
+          <div style="font-size:11px;color:var(--text-muted);background:rgba(var(--tint-rgb),0.03);border:1px solid var(--border-soft);border-radius:3px;padding:10px 14px;line-height:1.5">
+            <strong style="color:var(--text-bright);font-family:var(--font-display);letter-spacing:0.04em">HOW TO REBIND:</strong> Click any keybind button and press your new key combination (e.g. <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Ctrl</kbd> + <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Shift</kbd> + <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Key</kbd>). Press <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Escape</kbd> to cancel. Click <strong style="color:var(--text-bright)">↺</strong> to restore the recommended default.
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <div id="playerDetailBackdrop" hidden>
@@ -1157,7 +1479,8 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button id="pdSteamBtn" style="background:var(--accent);border:none;color:var(--on-accent);font-family:var(--font-display);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:0.06em">STEAM PROFILE ↗</button>
+          <button id="pdViewFullBtn" style="background:var(--accent);border:none;color:var(--on-accent);font-family:var(--font-display);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:0.06em">VIEW FULL PROFILE</button>
+          <button id="pdSteamBtn" style="background:none;border:1px solid var(--border-soft);color:var(--text-bright);font-family:var(--font-display);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:0.06em">STEAM ↗</button>
           <button id="pdCloseBtn" style="background:none;border:1px solid var(--border-soft);color:var(--text-dim);font-family:var(--font-display);font-size:13px;padding:6px 12px;cursor:pointer">CLOSE</button>
         </div>
       </header>
@@ -1190,6 +1513,153 @@
           <div>
             <div style="font-size:12px;color:var(--text-muted)" id="pdOpponentLabel">As Opponent</div>
             <div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--rival)" id="pdOpponentText">0g · 0% WR</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="playerFullProfileBackdrop" hidden>
+    <section id="playerFullProfileCard" class="panel">
+      <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
+      <header class="pfp-header">
+        <div class="pfp-identity">
+          <img id="pfpAvatar" src="" alt="Avatar" class="pfp-avatar" hidden />
+          <div>
+            <div class="kicker" id="pfpKicker">Player Dossier</div>
+            <h2 id="pfpName" class="pfp-name">—</h2>
+            <div id="pfpAccountId" class="pfp-account-id"></div>
+          </div>
+        </div>
+        <div class="pfp-header-actions">
+          <button id="pfpSteamBtn" class="pfp-action-btn">STEAM PROFILE ↗</button>
+          <button id="pfpCloseBtn" class="pfp-close-btn">CLOSE</button>
+        </div>
+      </header>
+
+      <div class="pfp-scroll-content">
+        <div class="pfp-stat-grid">
+          <div class="stat-tile">
+            <div class="stat-label">DPL Rating</div>
+            <div class="stat-value" id="pfpRating">1.00</div>
+            <div class="stat-sub" id="pfpRatingSub">Estimated skill</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">K/D Ratio</div>
+            <div class="stat-value" id="pfpKdr">0.00</div>
+            <div class="stat-sub" id="pfpKdaSub">0K - 0D - 0A</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">ADR / KAST</div>
+            <div class="stat-value" id="pfpAdr">0</div>
+            <div class="stat-sub" id="pfpKastSub">0% KAST</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label" id="pfpRecordLabel1">Teammate Record</div>
+            <div class="stat-value" id="pfpRecordVal1" style="color:var(--accent)">0g · 0% WR</div>
+            <div class="stat-sub" id="pfpRecordSub1">0W - 0L</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label" id="pfpRecordLabel2">Opponent Record</div>
+            <div class="stat-value" id="pfpRecordVal2" style="color:var(--rival)">0g · 0% WR</div>
+            <div class="stat-sub" id="pfpRecordSub2">0W - 0L</div>
+          </div>
+        </div>
+
+        <div class="panel pfp-section">
+          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
+          <div class="kicker">Tactical Combat Metrics</div>
+          <div class="pfp-combat-grid">
+            <div class="pfp-combat-block">
+              <div class="pfp-combat-label-row">
+                <span>Side ADR Splits</span>
+                <span class="stat-sub" id="pfpSideRoundsSub">0 Attack / 0 Defense Rnds</span>
+              </div>
+              <div class="pfp-adr-split-container">
+                <div class="pfp-adr-bar-wrapper">
+                  <div class="pfp-adr-side-info">
+                    <span class="pfp-side-tag pfp-side-tag--atk">ATTACK</span>
+                    <span class="pfp-side-val" id="pfpAttackAdr">0 ADR</span>
+                  </div>
+                  <div class="pfp-bar-track">
+                    <div class="pfp-bar-fill pfp-bar-fill--atk" id="pfpAtkBar" style="width:0%"></div>
+                  </div>
+                </div>
+                <div class="pfp-adr-bar-wrapper">
+                  <div class="pfp-adr-side-info">
+                    <span class="pfp-side-tag pfp-side-tag--def">DEFENSE</span>
+                    <span class="pfp-side-val" id="pfpDefenseAdr">0 ADR</span>
+                  </div>
+                  <div class="pfp-bar-track">
+                    <div class="pfp-bar-fill pfp-bar-fill--def" id="pfpDefBar" style="width:0%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pfp-combat-metrics-list">
+              <div class="pfp-metric-item">
+                <div class="stat-label">Opening Duels</div>
+                <div class="pfp-metric-val" id="pfpOpeningDuelRate">0%</div>
+                <div class="stat-sub" id="pfpOpeningDuelSub">0 won / 0 duels</div>
+              </div>
+              <div class="pfp-metric-item">
+                <div class="stat-label">Headshot Accuracy</div>
+                <div class="pfp-metric-val" id="pfpHeadshotRate">0%</div>
+                <div class="stat-sub" id="pfpHeadshotSub">0 HS / 0 hits</div>
+              </div>
+              <div class="pfp-metric-item">
+                <div class="stat-label">Team Damage (FF)</div>
+                <div class="pfp-metric-val" id="pfpTeamDamage">0</div>
+                <div class="stat-sub">Friendly fire dealt</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel pfp-section">
+          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
+          <div class="kicker">Weapon Arsenal Breakdown</div>
+          <div class="pfp-table-wrapper" style="max-height:260px;overflow-y:auto">
+            <table class="rows" id="pfpWeaponsTable">
+              <thead>
+                <tr>
+                  <th style="text-align:left">Weapon</th>
+                  <th style="text-align:left">Category</th>
+                  <th style="text-align:right">Kills</th>
+                  <th style="text-align:right">Damage</th>
+                  <th style="text-align:right">K/Rnd</th>
+                  <th style="text-align:right">Hits</th>
+                  <th style="text-align:right">HS %</th>
+                </tr>
+              </thead>
+              <tbody id="pfpWeaponsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel pfp-section">
+          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="kicker" id="pfpHistoryTitle">Mutual Match History</div>
+            <div class="stat-sub" id="pfpHistoryCount">0 matches</div>
+          </div>
+          <div class="pfp-table-wrapper" style="max-height:300px;overflow-y:auto">
+            <table class="rows" id="pfpMatchesTable">
+              <thead>
+                <tr>
+                  <th style="text-align:left">Outcome</th>
+                  <th style="text-align:left">Mode</th>
+                  <th style="text-align:left">Matchup / Map</th>
+                  <th style="text-align:center">Relation</th>
+                  <th style="text-align:center">Score</th>
+                  <th style="text-align:right">Player K-D-A</th>
+                  <th style="text-align:right">Damage</th>
+                  <th style="text-align:right">Date</th>
+                </tr>
+              </thead>
+              <tbody id="pfpMatchesBody"></tbody>
+            </table>
           </div>
         </div>
       </div>
