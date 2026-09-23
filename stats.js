@@ -44,6 +44,8 @@ export const weaponNames = {
   19: 'Gruber-SD',
   50: 'Grenade',
   51: 'Molotov Cocktail',
+  150: 'Door Charge',
+  151: 'Wall Charge',
 };
 
 // --- Full Weapon Metadata (from community spreadsheet & Fandom wiki) ---
@@ -76,6 +78,8 @@ export const weaponMeta = {
   19: { label: 'Gruber-SD', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/gruber-sd.png' },
   50: { label: 'Grenade', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/frag.png' },
   51: { label: 'Molotov Cocktail', category: 'Throwable', fireType: 'Throwable', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/molotov.png' },
+  150: { label: 'Door Charge', category: 'Equipment', fireType: 'Breach Charge', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Door_Charge', imageUrl: 'assets/weapons/doorcharge.png' },
+  151: { label: 'Wall Charge', category: 'Equipment', fireType: 'Breach Charge', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Wall_Charge', imageUrl: 'assets/weapons/wallcharge.png' },
 };
 
 // --- Weapon base (torso) damage, for headshot detection ----------------
