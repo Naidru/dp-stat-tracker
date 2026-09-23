@@ -53,15 +53,29 @@ function render(data) {
     if (predictionStripEl) predictionStripEl.hidden = false;
     if (predictionBadgeEl) {
       predictionBadgeEl.className = 'prediction-badge';
-      if (pred.team0WinChance === 50) {
+      if (pred.isConcluded) {
+        if (pred.isTie) {
+          predictionBadgeEl.classList.add('winner-even');
+          if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `MATCH TIED · ${pred.roundsWon0} - ${pred.roundsWon1}`;
+        } else {
+          const wonTeam0 = pred.roundsWon0 > pred.roundsWon1;
+          predictionBadgeEl.classList.add(wonTeam0 ? 'winner-team0' : 'winner-team1');
+          if (predictionBadgeTextEl) {
+            predictionBadgeTextEl.textContent = `MATCH DECIDED · ${wonTeam0 ? 'BLUE' : 'ORANGE'} WON (${pred.roundsWon0} - ${pred.roundsWon1})`;
+          }
+        }
+      } else if (pred.team0WinChance === 50) {
         predictionBadgeEl.classList.add('winner-even');
-        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = 'EVEN MATCHUP · 50% / 50%';
+        const scoreSuffix = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` (${pred.roundsWon0}-${pred.roundsWon1})` : '';
+        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `EVEN MATCHUP · 50% / 50%${scoreSuffix}`;
       } else if (pred.predictedWinner === 0) {
         predictionBadgeEl.classList.add('winner-team0');
-        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `BLUE WIN PREDICTION · ${pred.team0WinChance}% CHANCE`;
+        const scoreSuffix = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` (${pred.roundsWon0}-${pred.roundsWon1})` : '';
+        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `BLUE WIN PREDICTION · ${pred.team0WinChance}% CHANCE${scoreSuffix}`;
       } else {
         predictionBadgeEl.classList.add('winner-team1');
-        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `ORANGE WIN PREDICTION · ${pred.team1WinChance}% CHANCE`;
+        const scoreSuffix = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` (${pred.roundsWon0}-${pred.roundsWon1})` : '';
+        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `ORANGE WIN PREDICTION · ${pred.team1WinChance}% CHANCE${scoreSuffix}`;
       }
     }
 
