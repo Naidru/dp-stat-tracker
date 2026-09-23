@@ -9,6 +9,14 @@ const emptyEl = document.getElementById('empty');
 const mapLabelEl = document.getElementById('mapLabel');
 const roundLabelEl = document.getElementById('roundLabel');
 const hotkeyHintEl = document.getElementById('hotkeyHint');
+const predictionStripEl = document.getElementById('predictionStrip');
+const predictionBadgeEl = document.getElementById('predictionBadge');
+const predictionBadgeTextEl = document.getElementById('predictionBadgeText');
+const predRating0El = document.getElementById('predRating0');
+const predRating1El = document.getElementById('predRating1');
+const predPct0El = document.getElementById('predPct0');
+const predPct1El = document.getElementById('predPct1');
+const predictionBarFillEl = document.getElementById('predictionBarFill');
 
 function formatHotkeyDisplay(hk) {
   if (!hk) return 'Ctrl+Shift+Y';
@@ -27,6 +35,7 @@ function render(data) {
     emptyEl.hidden = false;
     mapLabelEl.textContent = '';
     roundLabelEl.textContent = '';
+    if (predictionStripEl) predictionStripEl.hidden = true;
     return;
   }
 
@@ -37,6 +46,47 @@ function render(data) {
   mapLabelEl.textContent = data.currentMap ?? '';
   const roundText = `Round ${data.roundCount}${data.status === 'in-progress' ? ' · Live' : ' · Final'}`;
   roundLabelEl.textContent = roundText;
+
+  // Render prediction if available
+  const pred = data.prediction;
+  if (pred && (pred.team0WinChance !== undefined || pred.predictedWinner !== undefined)) {
+    if (predictionStripEl) predictionStripEl.hidden = false;
+    if (predictionBadgeEl) {
+      predictionBadgeEl.className = 'prediction-badge';
+      if (pred.isConcluded) {
+        if (pred.isTie) {
+          predictionBadgeEl.classList.add('winner-even');
+          if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `MATCH TIED · ${pred.roundsWon0} - ${pred.roundsWon1}`;
+        } else {
+          const wonTeam0 = pred.roundsWon0 > pred.roundsWon1;
+          predictionBadgeEl.classList.add(wonTeam0 ? 'winner-team0' : 'winner-team1');
+          if (predictionBadgeTextEl) {
+            predictionBadgeTextEl.textContent = `MATCH DECIDED · ${wonTeam0 ? 'BLUE' : 'ORANGE'} WON (${pred.roundsWon0} - ${pred.roundsWon1})`;
+          }
+        }
+      } else if (pred.team0WinChance === 50) {
+        predictionBadgeEl.classList.add('winner-even');
+        const scoreSuffix = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` (${pred.roundsWon0}-${pred.roundsWon1})` : '';
+        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `EVEN MATCHUP · 50% / 50%${scoreSuffix}`;
+      } else if (pred.predictedWinner === 0) {
+        predictionBadgeEl.classList.add('winner-team0');
+        const scoreSuffix = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` (${pred.roundsWon0}-${pred.roundsWon1})` : '';
+        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `BLUE WIN PREDICTION · ${pred.team0WinChance}% CHANCE${scoreSuffix}`;
+      } else {
+        predictionBadgeEl.classList.add('winner-team1');
+        const scoreSuffix = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` (${pred.roundsWon0}-${pred.roundsWon1})` : '';
+        if (predictionBadgeTextEl) predictionBadgeTextEl.textContent = `ORANGE WIN PREDICTION · ${pred.team1WinChance}% CHANCE${scoreSuffix}`;
+      }
+    }
+
+    if (predRating0El) predRating0El.textContent = (pred.avgRating0 ?? 1.0).toFixed(2);
+    if (predRating1El) predRating1El.textContent = (pred.avgRating1 ?? 1.0).toFixed(2);
+    if (predPct0El) predPct0El.textContent = `(${pred.team0WinChance}%)`;
+    if (predPct1El) predPct1El.textContent = `(${pred.team1WinChance}%)`;
+    if (predictionBarFillEl) predictionBarFillEl.style.width = `${pred.team0WinChance}%`;
+  } else if (predictionStripEl) {
+    predictionStripEl.hidden = true;
+  }
 }
 
 window.overlayAPI.onUpdate(render);

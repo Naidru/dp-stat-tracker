@@ -69,6 +69,95 @@
     color: var(--text-faint);
   }
 
+  /* Prediction Banner Styles */
+  .prediction-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 6px 16px 7px 16px;
+    background: rgba(var(--tint-rgb), 0.02);
+    border-bottom: 1px solid rgba(var(--accent-rgb), 0.15);
+  }
+  .prediction-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .prediction-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border-soft);
+  }
+  .prediction-badge.winner-team0 {
+    color: var(--team0);
+    border-color: rgba(87, 156, 216, 0.4);
+    background: rgba(87, 156, 216, 0.12);
+  }
+  .prediction-badge.winner-team1 {
+    color: var(--rival);
+    border-color: rgba(226, 138, 66, 0.4);
+    background: rgba(226, 138, 66, 0.12);
+  }
+  .prediction-badge.winner-even {
+    color: var(--text-dim);
+    border-color: var(--border-soft);
+    background: rgba(var(--tint-rgb), 0.04);
+  }
+  .prediction-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+  }
+  .prediction-ratings {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-family: var(--font-display);
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+  }
+  .team0-rating {
+    color: var(--team0);
+    font-weight: 600;
+  }
+  .team1-rating {
+    color: var(--rival);
+    font-weight: 600;
+  }
+  .rating-sep {
+    color: var(--text-faint);
+  }
+  .rate-pct {
+    opacity: 0.85;
+    font-size: 10px;
+    margin-left: 2px;
+  }
+  .prediction-bar-track {
+    height: 4px;
+    width: 100%;
+    background: var(--rival);
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+  }
+  .prediction-bar-fill {
+    height: 100%;
+    background: var(--team0);
+    transition: width 0.3s ease;
+  }
+
   #footer {
     display: flex;
     align-items: center;
@@ -97,6 +186,22 @@
       <span class="meta" id="roundLabel"></span>
       <span class="hint" id="hotkeyHint">Ctrl+Shift+Y to hide</span>
     </header>
+    <div id="predictionStrip" class="prediction-strip" hidden>
+      <div class="prediction-info">
+        <div class="prediction-badge" id="predictionBadge">
+          <span class="prediction-badge-dot"></span>
+          <span id="predictionBadgeText">BLUE WIN PREDICTION · 50% CHANCE</span>
+        </div>
+        <div class="prediction-ratings">
+          <span class="team0-rating">TEAM 1: <strong id="predRating0">1.00</strong> <span class="rate-pct" id="predPct0">(50%)</span></span>
+          <span class="rating-sep">·</span>
+          <span class="team1-rating">TEAM 2: <strong id="predRating1">1.00</strong> <span class="rate-pct" id="predPct1">(50%)</span></span>
+        </div>
+      </div>
+      <div class="prediction-bar-track">
+        <div id="predictionBarFill" class="prediction-bar-fill" style="width: 50%"></div>
+      </div>
+    </div>
     <div id="teams" class="scoreboard-teams"></div>
     <div id="empty" hidden>Waiting for a match&hellip;</div>
     <footer id="footer">ADR = damage per round &middot; KAST = rounds with kill, assist, survival or trade</footer>

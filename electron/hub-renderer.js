@@ -530,12 +530,31 @@ function renderLiveMatch() {
 
   const pred = liveMatch.prediction;
   if (pred) {
-    const winnerName = pred.predictedWinner === 0 ? 'BLUE' : 'ORANGE';
-    const chance = pred.predictedWinner === 0 ? pred.team0WinChance : pred.team1WinChance;
-    document.getElementById('predictionWinnerText').textContent = `${winnerName} TEAM HAS A ${chance}% CHANCE OF WINNING`;
-    document.getElementById('blueAvgRating').textContent = pred.avgRating0.toFixed(2);
-    document.getElementById('orangeAvgRating').textContent = pred.avgRating1.toFixed(2);
-    document.getElementById('predictionBarTeam0').style.width = `${pred.team0WinChance}%`;
+    let predictionSummary = '';
+    if (pred.isConcluded) {
+      if (pred.isTie) {
+        predictionSummary = `MATCH TIED · ${pred.roundsWon0} - ${pred.roundsWon1}`;
+      } else {
+        const wonTeam0 = pred.roundsWon0 > pred.roundsWon1;
+        predictionSummary = `MATCH DECIDED · ${wonTeam0 ? 'BLUE' : 'ORANGE'} TEAM WON (${pred.roundsWon0} - ${pred.roundsWon1})`;
+      }
+    } else if (pred.team0WinChance === 50) {
+      const scoreCtx = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` [${pred.roundsWon0} - ${pred.roundsWon1}]` : '';
+      predictionSummary = `EVEN MATCHUP · 50% / 50% CHANCE${scoreCtx}`;
+    } else {
+      const winnerName = pred.predictedWinner === 0 ? 'BLUE' : 'ORANGE';
+      const chance = pred.predictedWinner === 0 ? pred.team0WinChance : pred.team1WinChance;
+      const scoreCtx = (pred.roundsWon0 > 0 || pred.roundsWon1 > 0) ? ` [${pred.roundsWon0} - ${pred.roundsWon1}]` : '';
+      predictionSummary = `${winnerName} TEAM HAS A ${chance}% CHANCE OF WINNING${scoreCtx}`;
+    }
+    const predWinnerEl = document.getElementById('predictionWinnerText');
+    if (predWinnerEl) predWinnerEl.textContent = predictionSummary;
+    const blueAvgRatingEl = document.getElementById('blueAvgRating');
+    if (blueAvgRatingEl) blueAvgRatingEl.textContent = (pred.avgRating0 ?? 1.0).toFixed(2);
+    const orangeAvgRatingEl = document.getElementById('orangeAvgRating');
+    if (orangeAvgRatingEl) orangeAvgRatingEl.textContent = (pred.avgRating1 ?? 1.0).toFixed(2);
+    const predBarTeam0El = document.getElementById('predictionBarTeam0');
+    if (predBarTeam0El) predBarTeam0El.style.width = `${pred.team0WinChance}%`;
   }
 
   renderScoreboardTeams(liveMatchTeamsEl, {

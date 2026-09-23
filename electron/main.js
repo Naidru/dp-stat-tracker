@@ -81,7 +81,7 @@ let lastConfirmedGameRunning = true; // assume true until the first poll settles
 function createOverlayWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   const width = 1120;
-  const height = 420;
+  const height = 450;
 
   overlayWindow = new BrowserWindow({
     width,
@@ -511,7 +511,7 @@ function onParserUpdate() {
       }
     }
   }
-  if (recordedAny) sendHubUpdate();
+  if (recordedAny || parser?.current) sendHubUpdate();
 
   const latest = matches.length > 0 ? matches[matches.length - 1] : null;
   const stats = latest ? computeMatchStats(latest) : null;
@@ -520,6 +520,13 @@ function onParserUpdate() {
 
 function sendOverlayUpdate(match, stats) {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  let prediction = null;
+  if (stats?.teams && (stats.teams[0]?.length > 0 || stats.teams[1]?.length > 0) && rankedArchive) {
+    const playedWithStats = rankedArchive.getPlayedWithStats();
+    const lifetimeStats = rankedArchive.getLifetimeStats();
+    const currentScore = stats.finalScore || { side0: 0, side1: 0 };
+    prediction = computeWinPrediction(stats.teams, playedWithStats, lifetimeStats, currentScore, match?.is2v2);
+  }
   overlayWindow.webContents.send('overlay:update', {
     status: match?.status ?? 'waiting',
     finalScore: stats?.finalScore ?? null,
@@ -528,6 +535,7 @@ function sendOverlayUpdate(match, stats) {
     currentMap: mapTracker.peekCurrent().at(-1)?.label ?? null,
     localAccountId: localAccountId || rankedArchive.getLocalAccountId(),
     overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
+    prediction,
   });
 }
 
@@ -553,7 +561,7 @@ function currentPlayerName() {
   return rankedArchive.getPlayerName(accountId) ?? otherArchive.getPlayerName(accountId);
 }
 
-function computeWinPrediction(teams, playedWithStats, localLifetimeStats) {
+function computeWinPrediction(teams, playedWithStats, localLifetimeStats, currentScore = null, is2v2 = false) {
   if (!teams || !teams[0] || !teams[1]) return null;
 
   // playedWithStats (rankedArchive.getPlayedWithStats()) deliberately
@@ -590,7 +598,46 @@ function computeWinPrediction(teams, playedWithStats, localLifetimeStats) {
   const avg1 = getTeamAvgRating(teams[1]);
 
   const diff = avg0 - avg1;
-  const prob0 = 1 / (1 + Math.pow(10, -diff / 0.50));
+  const rawPrior = 1 / (1 + Math.pow(10, -diff / 0.50));
+  // Single-round probability clamped between 0.05 and 0.95 to maintain realism
+  const pPrior = Math.max(0.05, Math.min(0.95, rawPrior));
+
+  const targetWins = is2v2 ? 4 : 7;
+  const w0 = Math.max(0, currentScore?.side0 ?? 0);
+  const w1 = Math.max(0, currentScore?.side1 ?? 0);
+
+  const isTie = !is2v2 && w0 === 6 && w1 === 6;
+  const isConcluded = w0 >= targetWins || w1 >= targetWins || isTie;
+
+  // Bayesian update for per-round probability:
+  // Prior weight W = 16 (representing ~16 rounds of prior baseline)
+  const W = 16;
+  const pLive = (W * pPrior + w0) / (W + w0 + w1);
+
+  // Markov / Problem of Points dynamic programming
+  const memo = new Map();
+  function dp(i, j) {
+    if (i >= targetWins) return 1.0;
+    if (j >= targetWins) return 0.0;
+    if (!is2v2 && i === 6 && j === 6) return 0.5; // Ranked 6-6 draw rule
+    const key = `${i},${j}`;
+    if (memo.has(key)) return memo.get(key);
+    const prob = pLive * dp(i + 1, j) + (1 - pLive) * dp(i, j + 1);
+    memo.set(key, prob);
+    return prob;
+  }
+
+  let prob0;
+  if (w0 >= targetWins) {
+    prob0 = 1.0;
+  } else if (w1 >= targetWins) {
+    prob0 = 0.0;
+  } else if (isTie) {
+    prob0 = 0.5;
+  } else {
+    prob0 = dp(w0, w1);
+  }
+
   const winRate0 = Math.round(prob0 * 100);
   const winRate1 = 100 - winRate0;
 
@@ -599,15 +646,24 @@ function computeWinPrediction(teams, playedWithStats, localLifetimeStats) {
     avgRating1: Math.round(avg1 * 100) / 100,
     team0WinChance: winRate0,
     team1WinChance: winRate1,
-    predictedWinner: winRate0 >= 50 ? 0 : 1,
+    predictedWinner: winRate0 > 50 ? 0 : winRate0 < 50 ? 1 : null,
+    roundsWon0: w0,
+    roundsWon1: w1,
+    targetWins,
+    isConcluded,
+    isTie,
   };
 }
 
 function getLiveMatchState(playedWithStats, localLifetimeStats) {
   if (!parser || !parser.current) return null;
-  const match = parser.current;
+  const match = {
+    ...parser.current,
+    finalScore: parser._deriveFinalScore ? parser._deriveFinalScore(parser.current) : parser.current.finalScore,
+  };
   const stats = computeMatchStats(match);
-  const prediction = computeWinPrediction(stats.teams, playedWithStats, localLifetimeStats);
+  const currentScore = stats.finalScore || { side0: 0, side1: 0 };
+  const prediction = computeWinPrediction(stats.teams, playedWithStats, localLifetimeStats, currentScore, match.is2v2);
   return {
     status: match.status,
     liveMatchId: match.liveMatchId,
