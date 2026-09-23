@@ -11,10 +11,23 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const { exec } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, shell, desktopCapturer, Tray, Menu, Notification } = require('electron');
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, shell, desktopCapturer, Tray, Menu, Notification, nativeImage } = require('electron');
 
-app.setName('due-process-scoreboard');
+app.setName('Due Process Tracker');
 app.setAppUserModelId('com.dpstat.tracker');
+
+const iconIcoPath = path.join(__dirname, 'assets', 'icon.ico');
+const iconPngPath = path.join(__dirname, 'assets', 'icon.png');
+const appIconPath = fs.existsSync(iconIcoPath) ? iconIcoPath : (fs.existsSync(iconPngPath) ? iconPngPath : null);
+let appIcon = null;
+if (appIconPath) {
+  try {
+    const img = nativeImage.createFromPath(appIconPath);
+    if (!img.isEmpty()) appIcon = img;
+  } catch (err) {
+    console.warn('Failed to create nativeImage icon:', err);
+  }
+}
 
 const config = require('./config');
 const { MatchArchive } = require('./match-archive');
@@ -82,6 +95,7 @@ function createOverlayWindow() {
     skipTaskbar: true,
     resizable: true,
     show: false,
+    icon: appIcon || appIconPath,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -101,8 +115,6 @@ function createHubWindow() {
   // for a frame before hub.html finishes loading) doesn't flash the wrong
   // color under the light palette.
   const bg = themeStore && themeStore.get() === 'light' ? '#f3f5f7' : '#0d1013';
-  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
-  const fallbackIconPath = path.join(__dirname, 'assets', 'icon.png');
   hubWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -110,7 +122,7 @@ function createHubWindow() {
     minHeight: 640,
     alwaysOnTop: false,
     title: 'Due Process Tracker',
-    icon: fs.existsSync(iconPath) ? iconPath : fallbackIconPath,
+    icon: appIcon || appIconPath,
     backgroundColor: bg,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -118,6 +130,9 @@ function createHubWindow() {
       nodeIntegration: false,
     },
   });
+  if (appIcon && typeof hubWindow.setIcon === 'function') {
+    hubWindow.setIcon(appIcon);
+  }
   hubWindow.loadFile(path.join(__dirname, 'hub.html'));
 
   // Close-to-tray behavior: hide window to tray instead of quitting,
