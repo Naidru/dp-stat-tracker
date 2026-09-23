@@ -1462,62 +1462,6 @@
             <strong style="color:var(--text-bright);font-family:var(--font-display);letter-spacing:0.04em">HOW TO REBIND:</strong> Click any keybind button and press your new key combination (e.g. <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Ctrl</kbd> + <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Shift</kbd> + <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Key</kbd>). Press <kbd style="background:var(--bg-tile);border:1px solid var(--border);padding:1px 5px;border-radius:2px;font-family:var(--font-display);font-size:10px">Escape</kbd> to cancel. Click <strong style="color:var(--text-bright)">↺</strong> to restore the recommended default.
           </div>
         </div>
-
-        <!-- System Tray & Background Service Section -->
-        <div class="panel" style="padding:22px;display:flex;flex-direction:column;gap:14px">
-          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
-          <div>
-            <div class="kicker">Windows Integration</div>
-            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:0.06em;text-transform:uppercase">System Tray & Background Service</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">The Tracker Hub integrates with the Windows notification area for background tailing and instant hotkey response.</div>
-          </div>
-
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
-            <div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:4px;padding:12px 16px">
-              <div style="font-size:18px;line-height:1;margin-top:2px">📥</div>
-              <div style="flex:1">
-                <div style="font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--text-bright);letter-spacing:0.04em">CLOSE-TO-TRAY BEHAVIOR</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.4">Closing the Hub window via the "X" button minimizes it to the Windows System Tray rather than quitting. Live log tailing, match parsing, and the in-game overlay remain active in the background.</div>
-              </div>
-            </div>
-
-            <div style="display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:4px;padding:12px 16px">
-              <div style="font-size:18px;line-height:1;margin-top:2px">🎯</div>
-              <div style="flex:1">
-                <div style="font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--text-bright);letter-spacing:0.04em">SYSTEM TRAY QUICK ACTIONS</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.4">Click or double-click the reticle icon in your Windows taskbar to bring the Tracker Hub to the front. Right-click the icon to open the quick menu to toggle the overlay or cleanly quit the tracker.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Storage & Diagnostics Section -->
-        <div class="panel" style="padding:22px;display:flex;flex-direction:column;gap:14px">
-          <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
-          <div>
-            <div class="kicker">Diagnostics</div>
-            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--text-bright);letter-spacing:0.06em;text-transform:uppercase">Storage & Log Monitoring</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Diagnostic information regarding live log monitoring and local database paths.</div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px">
-            <div class="stat-tile" style="padding:14px">
-              <div class="stat-label">Watched Log</div>
-              <div class="stat-value" style="font-size:16px;color:var(--accent-bright);margin-top:4px">Player.log</div>
-              <div class="stat-sub">Unity LocalLow directory</div>
-            </div>
-            <div class="stat-tile" style="padding:14px">
-              <div class="stat-label">Game Process</div>
-              <div class="stat-value" style="font-size:16px;color:var(--accent-bright);margin-top:4px">DueProcess.exe</div>
-              <div class="stat-sub">Auto-polled every 4s</div>
-            </div>
-            <div class="stat-tile" style="padding:14px">
-              <div class="stat-label">Data Retention</div>
-              <div class="stat-value" style="font-size:16px;color:var(--accent-bright);margin-top:4px">Local Storage</div>
-              <div class="stat-sub">UserData / match-archive.json</div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </main>
