@@ -1,5 +1,5 @@
 'use strict';
-// Electron main process. Run from due-process-scoreboard/ with:
+// Electron main process. Run from due-process-tracker/ with:
 //   npx electron .
 //
 // parser.js and stats.js are reused unchanged (see ../parser.js, ../stats.js).
@@ -36,7 +36,11 @@ const { MapTracker } = require('./map-tracker');
 const { MapLayoutLibrary } = require('./map-layout-library');
 const { ThemeStore, DEFAULT_THEME } = require('./theme-store');
 const { SettingsStore } = require('./settings-store');
-const { recordCompletedMatch, scanLogFileForCompletedMatches } = require('./rescan');
+const {
+  recordCompletedMatch,
+  scanLogFileForCompletedMatches,
+  scanArchiveZipsForCompletedMatches,
+} = require('./rescan');
 
 let overlayWindow = null;
 let hubWindow = null;
@@ -1065,16 +1069,23 @@ ipcMain.handle('settings:reset-map-capture-hotkey', (_event) => {
 // rotated away, since the full scoreboard was persisted at record time.
 ipcMain.handle('hub:get-match-detail', (_event, matchId) => {
   const checkIs2v2 = (m) => {
-    const t0 = m.teams && m.teams[0] ? m.teams[0].length : 0;
-    const t1 = m.teams && m.teams[1] ? m.teams[1].length : 0;
     return m.is2v2 !== undefined
       ? Boolean(m.is2v2)
-      : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+      : Boolean(typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel));
   };
   const rankedMatch = rankedArchive.getMatch(matchId);
-  if (rankedMatch) return { ...rankedMatch, isRanked: true, is2v2: checkIs2v2(rankedMatch) };
+  if (rankedMatch) {
+    const is2v2 = checkIs2v2(rankedMatch);
+    const tags = Array.isArray(rankedMatch.tags) ? rankedMatch.tags : (is2v2 ? ['2v2'] : ['Ranked']);
+    return { ...rankedMatch, isRanked: true, is2v2, tags };
+  }
   const otherMatch = otherArchive.getMatch(matchId);
-  return otherMatch ? { ...otherMatch, isRanked: false, is2v2: checkIs2v2(otherMatch) } : null;
+  if (otherMatch) {
+    const is2v2 = checkIs2v2(otherMatch);
+    const tags = Array.isArray(otherMatch.tags) ? otherMatch.tags : (is2v2 ? ['2v2'] : ['Casual']);
+    return { ...otherMatch, isRanked: false, is2v2, tags };
+  }
+  return null;
 });
 
 ipcMain.handle('hub:get-player-detail', (_event, accountId) => {
@@ -1214,6 +1225,76 @@ ipcMain.handle('hub:delete-match', (_event, matchId) => {
   return deleted;
 });
 
+// Update or override the gamemode classification for a match (e.g. Ranked <-> Casual/Scrim/2v2),
+// transferring the record between archives so lifetime career statistics reflect the change.
+ipcMain.handle('hub:set-match-mode', (_event, matchId, targetMode) => {
+  if (!matchId || typeof targetMode !== 'string') return false;
+  const isRankedTarget = targetMode.toLowerCase() === 'ranked';
+  const is2v2Target = targetMode.toLowerCase() === '2v2';
+
+  const inRanked = rankedArchive.getMatch(matchId);
+  const inOther = otherArchive.getMatch(matchId);
+
+  if (isRankedTarget) {
+    if (inOther) {
+      const currentTags = (inOther.tags || []).filter((t) => t.toLowerCase() !== 'casual' && t.toLowerCase() !== 'other');
+      if (!currentTags.includes('Ranked')) currentTags.unshift('Ranked');
+      otherArchive.transferMatchTo(matchId, rankedArchive, {
+        modeOverride: 'Ranked',
+        is2v2: false,
+        tags: currentTags,
+      });
+      sendHubUpdate();
+      return true;
+    } else if (inRanked) {
+      const currentTags = (inRanked.tags || []).filter((t) => t.toLowerCase() !== 'casual');
+      if (!currentTags.includes('Ranked')) currentTags.unshift('Ranked');
+      rankedArchive.updateMatch(matchId, {
+        modeOverride: 'Ranked',
+        is2v2: false,
+        tags: currentTags,
+      });
+      sendHubUpdate();
+      return true;
+    }
+  } else {
+    const patch = {
+      modeOverride: targetMode,
+      is2v2: is2v2Target,
+    };
+    if (inRanked) {
+      const currentTags = (inRanked.tags || []).filter((t) => t.toLowerCase() !== 'ranked');
+      if (!currentTags.includes(targetMode)) currentTags.unshift(targetMode);
+      patch.tags = currentTags;
+      rankedArchive.transferMatchTo(matchId, otherArchive, patch);
+      sendHubUpdate();
+      return true;
+    } else if (inOther) {
+      const currentTags = (inOther.tags || []).filter((t) => t.toLowerCase() !== 'ranked');
+      if (!currentTags.includes(targetMode)) currentTags.unshift(targetMode);
+      patch.tags = currentTags;
+      otherArchive.updateMatch(matchId, patch);
+      sendHubUpdate();
+      return true;
+    }
+  }
+  return false;
+});
+
+// Update the user tags array on an archived match.
+ipcMain.handle('hub:set-match-tags', (_event, matchId, tags) => {
+  if (!matchId || !Array.isArray(tags)) return false;
+  const cleanTags = [...new Set(tags.map((t) => String(t).trim()).filter(Boolean))];
+  let updated = false;
+  if (rankedArchive.getMatch(matchId)) {
+    updated = rankedArchive.updateMatch(matchId, { tags: cleanTags });
+  } else if (otherArchive.getMatch(matchId)) {
+    updated = otherArchive.updateMatch(matchId, { tags: cleanTags });
+  }
+  if (updated) sendHubUpdate();
+  return updated;
+});
+
 // See captureMapScreenshot() — pendingMapScreenshot holds the just-captured
 // bytes between the hotkey press and the user confirming/retrying in the
 // Hub's preview popup.
@@ -1263,9 +1344,18 @@ async function main() {
   // source of truth (match-archive.js sums it on read), so the Hub can show
   // correct history the moment its window is ready, with no rescanning
   // needed just to display what's already recorded.
-  const userDataDir = app.getPath('userData');
   rankedArchive = new MatchArchive(path.join(userDataDir, 'match-archive.json'));
   otherArchive = new MatchArchive(path.join(userDataDir, 'other-matches-archive.json'));
+
+  // Ensure any matches with an explicit non-Ranked mode override currently stored in rankedArchive are migrated to otherArchive.
+  const misclassified = rankedArchive.data.matches.filter((m) => m.modeOverride && m.modeOverride.toLowerCase() !== 'ranked');
+  for (const m of misclassified) {
+    const is2v2 = m.modeOverride.toLowerCase() === '2v2';
+    rankedArchive.transferMatchTo(m.matchId, otherArchive, {
+      is2v2,
+      tags: m.tags || [m.modeOverride],
+    });
+  }
   mapLayoutLibrary = new MapLayoutLibrary(path.join(userDataDir, 'map-layouts'));
   themeStore = new ThemeStore(path.join(userDataDir, 'theme.json'));
   settingsStore = new SettingsStore(path.join(userDataDir, 'settings.json'));
@@ -1300,19 +1390,27 @@ async function main() {
 
   startGameDetection();
 
-  // Step 2: check Player-prev.log and Player.log for any completed (or, if
-  // the game isn't currently running, inferred-completable) matches whose
-  // MatchId isn't archived yet — BEFORE live tailing starts. Due Process
-  // rotates its log on every launch (Player.log -> Player-prev.log, older
-  // deleted), so this is the only chance to catch a match that finished
-  // between "app closed" and "app reopened"; see rescan.js for the
-  // durability note. Order matters: prev (older) first, then current.
+  // Step 2: check LogArchive*.zip, Player-prev.log and Player.log for any
+  // completed (or, if the game isn't currently running, inferred-completable)
+  // matches whose MatchId isn't archived yet — BEFORE live tailing starts. Order
+  // matters: oldest archives first (LogArchive9..0), then prev, then current.
   //
   // allowInferred is gated on a single startup-time isGameRunning() check
   // (not the 2-poll debounce the live path uses) — there's no "momentary
   // hiccup" to guard against here, just one deliberate check before any
   // polling has even started.
   const gameRunningAtStartup = await isGameRunning();
+  const archiveScan = await scanArchiveZipsForCompletedMatches({
+    logDir: path.dirname(config.PLAYER_LOG_PATH),
+    DueProcessLogParser,
+    computeMatchStats,
+    roundRoleByRosterSide,
+    rankedArchive,
+    otherArchive,
+    findLocalAccountId,
+    deriveFinalScoreFromRounds,
+    allowInferred: !gameRunningAtStartup,
+  });
   const prevScan = await scanLogFileForCompletedMatches({
     filePath: config.PLAYER_PREV_LOG_PATH,
     DueProcessLogParser,
@@ -1335,9 +1433,10 @@ async function main() {
     deriveFinalScoreFromRounds,
     allowInferred: !gameRunningAtStartup,
   });
-  if (prevScan.recorded + currentScan.recorded > 0) {
+  if (archiveScan.recorded + prevScan.recorded + currentScan.recorded > 0) {
     console.log(
-      `Startup catch-up: recorded ${prevScan.recorded} match(es) from Player-prev.log, ` +
+      `Startup catch-up: recorded ${archiveScan.recorded} match(es) from ${archiveScan.zipCount} LogArchive zip(s), ` +
+        `${prevScan.recorded} from Player-prev.log, ` +
         `${currentScan.recorded} from Player.log.`
     );
   }

@@ -417,19 +417,141 @@ for (const item of navItems) {
   item.addEventListener('click', () => switchView(item.dataset.view));
 }
 
+let rankedHistoryMatches = [];
+let rankedFilterTag = 'all';
+let rankedSearchQuery = '';
+
+let otherHistoryMatches = [];
+let otherFilterTag = 'all';
+let otherSearchQuery = '';
+
+function applyMatchFilters(matches, filterTag, searchQuery) {
+  let list = matches;
+  if (filterTag && filterTag !== 'all') {
+    const target = filterTag.toLowerCase();
+    list = list.filter((m) => {
+      const tags = (m.tags || []).map((t) => String(t).toLowerCase());
+      if (tags.includes(target)) return true;
+      if (target === 'ranked' && m.source === 'ranked') return true;
+      if (target === '2v2' && (m.source === '2v2' || m.is2v2)) return true;
+      return false;
+    });
+  }
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    list = list.filter((m) => {
+      const matchup = (m.matchup || `${m.team0Name || ''} vs ${m.team1Name || ''}`).toLowerCase();
+      const mapLabel = (m.mapLabel || '').toLowerCase();
+      const tags = (m.tags || []).join(' ').toLowerCase();
+      return matchup.includes(q) || mapLabel.includes(q) || tags.includes(q);
+    });
+  }
+  return list;
+}
+
+function renderFilterPills(containerEl, matches, activeTag, onSelect) {
+  if (!containerEl) return;
+  const tagCounts = new Map();
+  for (const m of matches) {
+    const tags = Array.isArray(m.tags) && m.tags.length > 0
+      ? m.tags
+      : (m.source === 'ranked' ? ['Ranked'] : (m.is2v2 ? ['2v2'] : ['Casual']));
+    for (const t of tags) {
+      tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+    }
+  }
+
+  containerEl.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = `cat-pill ${activeTag === 'all' ? 'active' : ''}`;
+  allBtn.textContent = `All (${matches.length})`;
+  allBtn.addEventListener('click', () => onSelect('all'));
+  containerEl.appendChild(allBtn);
+
+  for (const [tag, count] of tagCounts) {
+    const btn = document.createElement('button');
+    btn.className = `cat-pill ${activeTag.toLowerCase() === tag.toLowerCase() ? 'active' : ''}`;
+    btn.textContent = `${tag} (${count})`;
+    btn.addEventListener('click', () => onSelect(tag));
+    containerEl.appendChild(btn);
+  }
+}
+
+function updateFilteredHistoryTable(kind) {
+  const bodyEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryBody' : 'otherHistoryBody');
+  const filterTagsEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryFilterTags' : 'otherHistoryFilterTags');
+  const currentList = kind === 'ranked' ? rankedHistoryMatches : otherHistoryMatches;
+  const activeTag = kind === 'ranked' ? rankedFilterTag : otherFilterTag;
+  const activeQuery = kind === 'ranked' ? rankedSearchQuery : otherSearchQuery;
+
+  if (filterTagsEl) {
+    for (const btn of filterTagsEl.querySelectorAll('.cat-pill')) {
+      const isAll = btn.textContent.startsWith('All');
+      if (activeTag === 'all') {
+        btn.classList.toggle('active', isAll);
+      } else {
+        btn.classList.toggle('active', !isAll && btn.textContent.toLowerCase().startsWith(activeTag.toLowerCase()));
+      }
+    }
+  }
+
+  const filtered = applyMatchFilters(currentList, activeTag, activeQuery);
+  renderMatchRows(bodyEl, filtered, { tagSource: true });
+}
+
 async function fetchAndRenderHistory(kind) {
   const matches = kind === 'ranked' ? await window.hubAPI.getRankedHistory() : await window.hubAPI.getOtherHistory();
   const emptyEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryEmpty' : 'otherHistoryEmpty');
   const panelEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryPanel' : 'otherHistoryPanel');
-  const bodyEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryBody' : 'otherHistoryBody');
+  const filterBarEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryFilterBar' : 'otherHistoryFilterBar');
+  const filterTagsEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryFilterTags' : 'otherHistoryFilterTags');
+  const searchInputEl = document.getElementById(kind === 'ranked' ? 'rankedHistorySearch' : 'otherHistorySearch');
+
   const hasAny = matches.length > 0;
   emptyEl.hidden = hasAny;
   panelEl.hidden = !hasAny;
+  if (filterBarEl) filterBarEl.hidden = !hasAny;
+
+  if (kind === 'ranked') {
+    rankedHistoryMatches = matches.map((m) => ({ ...m, source: 'ranked' }));
+  } else {
+    otherHistoryMatches = matches.map((m) => ({ ...m, source: m.is2v2 ? '2v2' : 'other' }));
+  }
+
+  const currentList = kind === 'ranked' ? rankedHistoryMatches : otherHistoryMatches;
+
   if (hasAny) {
-    const tagged = kind === 'other'
-      ? matches.map((m) => ({ ...m, source: m.is2v2 ? '2v2' : 'other' }))
-      : matches;
-    renderMatchRows(bodyEl, tagged, { tagSource: kind === 'other' });
+    const availableTags = new Set(currentList.flatMap((m) => m.tags || []).map((t) => t.toLowerCase()));
+    if (kind === 'ranked') {
+      if (rankedFilterTag !== 'all' && !availableTags.has(rankedFilterTag.toLowerCase())) {
+        rankedFilterTag = 'all';
+      }
+    } else {
+      if (otherFilterTag !== 'all' && !availableTags.has(otherFilterTag.toLowerCase())) {
+        otherFilterTag = 'all';
+      }
+    }
+    const activeTag = kind === 'ranked' ? rankedFilterTag : otherFilterTag;
+
+    renderFilterPills(filterTagsEl, currentList, activeTag, (newTag) => {
+      if (kind === 'ranked') rankedFilterTag = newTag;
+      else otherFilterTag = newTag;
+      updateFilteredHistoryTable(kind);
+    });
+
+    if (searchInputEl && !searchInputEl.dataset.bound) {
+      searchInputEl.dataset.bound = 'true';
+      searchInputEl.addEventListener('input', (e) => {
+        if (kind === 'ranked') rankedSearchQuery = e.target.value;
+        else otherSearchQuery = e.target.value;
+        updateFilteredHistoryTable(kind);
+      });
+    }
+
+    updateFilteredHistoryTable(kind);
+  } else {
+    const bodyEl = document.getElementById(kind === 'ranked' ? 'rankedHistoryBody' : 'otherHistoryBody');
+    if (bodyEl) bodyEl.innerHTML = '';
   }
 }
 
@@ -1710,10 +1832,19 @@ weaponSearchInput.addEventListener('input', (e) => {
   renderWeaponsTable();
 });
 
+function getBadgeClassForTag(tag) {
+  const lower = String(tag).toLowerCase();
+  if (lower === 'ranked') return 'ranked';
+  if (lower === '2v2') return '2v2';
+  if (lower === 'scrim') return 'scrim';
+  if (lower === 'tournament') return 'tournament';
+  if (lower === 'casual') return 'casual';
+  return 'custom';
+}
+
 // Shared by Home's unified feed and both History views — same row shape
 // (result/map/score/K-D-A/played/delete) everywhere; Home and Other History
-// tag rows with a RANKED/2v2/OTHER badge (opts.tagSource), since Home mixes
-// all sources and Other History contains both 2v2 and casual/custom modes.
+// tag rows with badges for their assigned tags.
 function renderMatchRows(tbody, matches, opts = {}) {
   tbody.innerHTML = '';
   for (const m of matches) {
@@ -1722,11 +1853,11 @@ function renderMatchRows(tbody, matches, opts = {}) {
     tr.title = 'Click for the full scoreboard';
     const resultClass = m.tied ? 'result-tie' : m.won ? 'result-win' : 'result-loss';
     const resultText = m.tied ? 'TIE' : m.won ? 'WIN' : 'LOSS';
-    const is2v2Match = m.source === '2v2' || m.is2v2;
-    const badgeClass = m.source === 'ranked' ? 'ranked' : is2v2Match ? '2v2' : 'other';
-    const badgeText = m.source === 'ranked' ? 'RANKED' : is2v2Match ? '2v2' : 'OTHER';
-    const sourceBadge = opts.tagSource
-      ? `<span class="source-badge source-badge--${badgeClass}">${badgeText}</span>`
+    const matchTags = Array.isArray(m.tags) && m.tags.length > 0
+      ? m.tags
+      : (m.source === 'ranked' ? ['Ranked'] : (m.is2v2 ? ['2v2'] : ['Casual']));
+    const sourceBadge = (opts.tagSource || matchTags.length > 0)
+      ? matchTags.map((tag) => `<span class="source-badge source-badge--${getBadgeClassForTag(tag)}">${escapeHtml(String(tag).toUpperCase())}</span>`).join('')
       : '';
     const myScoreClass = m.tied ? '' : m.won ? '' : 'result-loss';
     const oppScoreClass = m.tied ? '' : m.won ? 'result-win' : '';
@@ -1967,10 +2098,124 @@ async function openMatchDetail(matchId) {
     }
   }
 
+function updateMatchDetailMeta(match) {
   const modeClass = match.isRanked ? 'ranked' : match.is2v2 ? '2v2' : 'other';
-  const modeText = match.isRanked ? 'RANKED' : match.is2v2 ? '2v2' : 'OTHER';
+  const modeText = match.modeOverride ? match.modeOverride.toUpperCase() : (match.isRanked ? 'RANKED' : match.is2v2 ? '2v2' : 'OTHER');
   const inferredNote = match.inferred ? ' · INFERRED (no matchEnded seen)' : '';
   matchDetailMeta.innerHTML = `<span class="source-badge source-badge--${modeClass}" style="margin-left:0;margin-right:6px">${modeText}</span>${match.roundCount} rounds${inferredNote}`;
+}
+
+function renderMatchDetailTags(match) {
+  const container = document.getElementById('matchDetailTagsList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const tags = Array.isArray(match.tags) ? match.tags : [];
+
+  for (const tag of tags) {
+    const pill = document.createElement('span');
+    pill.className = 'match-tag-pill active';
+    pill.innerHTML = `${escapeHtml(tag)}<span class="match-tag-pill-remove" title="Remove tag">&times;</span>`;
+    pill.querySelector('.match-tag-pill-remove').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const updated = tags.filter((t) => t.toLowerCase() !== tag.toLowerCase());
+        match.tags = updated;
+        await window.hubAPI.setMatchTags(match.matchId, updated);
+        renderMatchDetailTags(match);
+        if (currentView === 'ranked' || currentView === 'other') fetchAndRenderHistory(currentView);
+      } catch (err) {
+        console.error('Failed to remove tag:', err);
+      }
+    });
+    container.appendChild(pill);
+  }
+
+  const PRESET_QUICK_TAGS = ['Scrim', 'Tournament', 'Warmup', 'Casual', 'Custom'];
+  for (const preset of PRESET_QUICK_TAGS) {
+    if (tags.some((t) => t.toLowerCase() === preset.toLowerCase())) continue;
+    const pill = document.createElement('span');
+    pill.className = 'match-tag-pill match-tag-pill--preset';
+    pill.textContent = `+ ${preset}`;
+    pill.addEventListener('click', async () => {
+      try {
+        const updated = [...tags, preset];
+        match.tags = updated;
+        await window.hubAPI.setMatchTags(match.matchId, updated);
+        renderMatchDetailTags(match);
+        if (currentView === 'ranked' || currentView === 'other') fetchAndRenderHistory(currentView);
+      } catch (err) {
+        console.error('Failed to add preset tag:', err);
+      }
+    });
+    container.appendChild(pill);
+  }
+}
+
+  const modeSelect = document.getElementById('matchDetailModeSelect');
+  if (modeSelect) {
+    const currentMode = match.modeOverride || (match.isRanked ? 'Ranked' : match.is2v2 ? '2v2' : 'Casual');
+    const matchedOption = [...modeSelect.options].find((opt) => opt.value.toLowerCase() === currentMode.toLowerCase());
+    if (matchedOption) {
+      modeSelect.value = matchedOption.value;
+    } else {
+      modeSelect.value = currentMode;
+    }
+    modeSelect.onchange = async () => {
+      const newMode = modeSelect.value;
+      try {
+        const ok = await window.hubAPI.setMatchMode(matchDetailCurrentId, newMode);
+        if (ok) {
+          match.isRanked = newMode.toLowerCase() === 'ranked';
+          match.is2v2 = newMode.toLowerCase() === '2v2';
+          match.modeOverride = newMode;
+          if (!match.tags) match.tags = [];
+          const cleanOldModeTags = match.tags.filter((t) => {
+            const low = t.toLowerCase();
+            return low !== 'ranked' && low !== 'casual' && low !== 'other' && low !== '2v2' && low !== 'scrim' && low !== 'custom' && low !== 'tournament';
+          });
+          match.tags = [newMode, ...cleanOldModeTags];
+          renderMatchDetailTags(match);
+          updateMatchDetailMeta(match);
+          if (currentView === 'ranked' || currentView === 'other') {
+            await fetchAndRenderHistory(currentView);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to set match mode:', err);
+      }
+    };
+  }
+
+  const tagInput = document.getElementById('matchDetailTagInput');
+  const addTagBtn = document.getElementById('matchDetailAddTagBtn');
+  const handleAddTag = async () => {
+    if (!tagInput || !tagInput.value.trim() || !matchDetailCurrentId) return;
+    const newTag = tagInput.value.trim();
+    tagInput.value = '';
+    try {
+      const tags = Array.isArray(match.tags) ? match.tags : [];
+      if (!tags.some((t) => t.toLowerCase() === newTag.toLowerCase())) {
+        const updated = [...tags, newTag];
+        match.tags = updated;
+        await window.hubAPI.setMatchTags(matchDetailCurrentId, updated);
+        renderMatchDetailTags(match);
+        if (currentView === 'ranked' || currentView === 'other') fetchAndRenderHistory(currentView);
+      }
+    } catch (err) {
+      console.error('Failed to add custom tag:', err);
+    }
+  };
+  if (addTagBtn) addTagBtn.onclick = handleAddTag;
+  if (tagInput) {
+    tagInput.onkeydown = (e) => {
+      if (e.key === 'Enter') handleAddTag();
+    };
+  }
+
+  renderMatchDetailTags(match);
+  updateMatchDetailMeta(match);
+
   renderScoreboardTeams(matchDetailTeams, {
     finalScore: match.finalScore,
     teams: match.teams,

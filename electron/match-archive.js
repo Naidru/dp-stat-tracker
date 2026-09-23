@@ -38,18 +38,18 @@ const MAX_MATCHES = 1000;
 const WEAPON_META = {
   0: { label: 'Dawn', category: 'LMG', fireType: 'Auto', baseDamage: 25, rpm: 460, wikiUrl: 'https://dueprocess.fandom.com/wiki/Dawn', imageUrl: 'assets/weapons/dawn.png' },
   1: { label: 'AP-25', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 20, rpm: 600, wikiUrl: 'https://dueprocess.fandom.com/wiki/AP-25', imageUrl: 'assets/weapons/ap-25.png' },
-  2: { label: 'BLK-TAR', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'assets/weapons/blk-tar.png' },
+  2: { label: 'BLK-TAR', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/BLK-TAR', imageUrl: 'assets/weapons/blk-tar.png' },
   3: { label: 'GAT-9', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 420, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gat-9', imageUrl: 'assets/weapons/gat-9.png' },
   4: { label: 'Gruber-5', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 22, rpm: 720, wikiUrl: 'https://dueprocess.fandom.com/wiki/Gruber-5', imageUrl: 'assets/weapons/gruber-5.png' },
   5: { label: 'PK-57', category: 'Handgun', fireType: 'Semi', baseDamage: 20, rpm: 410, wikiUrl: 'https://dueprocess.fandom.com/wiki/PK-57', imageUrl: 'assets/weapons/pk-57.png' },
-  6: { label: 'SAB-R', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 50, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/SAB-R', imageUrl: 'assets/weapons/sab-r.png' },
+  6: { label: 'SAB-R', category: 'Sniper Rifle', fireType: 'Semi', baseDamage: 50, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/SAB-R', imageUrl: 'assets/weapons/sab-r.png' },
   7: { label: 'DL-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/DL-12', imageUrl: 'assets/weapons/dl-12.png' },
   8: { label: 'KR82M', category: 'Assault Rifle', fireType: 'Auto', baseDamage: 30, rpm: 540, wikiUrl: 'https://dueprocess.fandom.com/wiki/KR82M', imageUrl: 'assets/weapons/kr82m.png' },
   9: { label: 'LS-45', category: 'Handgun', fireType: 'Semi', baseDamage: 30, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/LS45', imageUrl: 'assets/weapons/ls-45.png' },
   10: { label: 'Nack-11', category: 'Submachine Gun', fireType: 'Auto', baseDamage: 18, rpm: 1080, wikiUrl: 'https://dueprocess.fandom.com/wiki/Nack-11', imageUrl: 'assets/weapons/nack-11.png' },
   11: { label: 'MAWP', category: 'Sniper Rifle', fireType: 'Single', baseDamage: 85, rpm: 23, wikiUrl: 'https://dueprocess.fandom.com/wiki/MAWP', imageUrl: 'assets/weapons/mawp.png' },
   12: { label: 'Ingmar-57', category: 'Battle Rifle', fireType: 'Auto', baseDamage: 37, rpm: 390, wikiUrl: 'https://dueprocess.fandom.com/wiki/INGMAR-57', imageUrl: 'assets/weapons/ingmar-57.png' },
-  13: { label: 'Legros', category: 'Assault Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'assets/weapons/legros.png' },
+  13: { label: 'Legros', category: 'Battle Rifle', fireType: 'Semi', baseDamage: 40, rpm: 260, wikiUrl: 'https://dueprocess.fandom.com/wiki/F1-Legros', imageUrl: 'assets/weapons/legros.png' },
   14: { label: 'TUB-12', category: 'Shotgun', fireType: 'Pump', baseDamage: 20, rpm: 60, wikiUrl: 'https://dueprocess.fandom.com/wiki/TUB-12', imageUrl: 'assets/weapons/tub-12.png' },
   15: { label: 'Auto Shotgun', category: 'Shotgun', fireType: 'Auto', baseDamage: 20, rpm: 240, wikiUrl: 'https://dueprocess.fandom.com/wiki/Auto_Shotgun', imageUrl: 'assets/weapons/auto-shotgun.png' },
   16: { label: 'Short Shotgun', category: 'Shotgun', fireType: 'Unknown', baseDamage: null, rpm: null, wikiUrl: 'https://dueprocess.fandom.com/wiki/Weapons', imageUrl: 'assets/weapons/short-shotgun.png' },
@@ -108,6 +108,16 @@ class MatchArchive {
             const totalHs = breakdown.reduce((sum, w) => sum + (w.headshots ?? 0), 0);
             r.hsPercent = totalHits > 0 ? Math.round((totalHs / totalHits) * 100) : null;
           }
+        }
+      }
+      if (!Array.isArray(m.tags)) {
+        const is2v2 = m.is2v2 || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel));
+        if (is2v2) {
+          m.tags = ['2v2'];
+        } else if (this.filePath && this.filePath.includes('other')) {
+          m.tags = ['Casual'];
+        } else {
+          m.tags = ['Ranked'];
         }
       }
     }
@@ -236,6 +246,36 @@ class MatchArchive {
     return true;
   }
 
+  /**
+   * Update one match record in-place by MatchId (e.g. tags or mode override).
+   */
+  updateMatch(matchId, patch) {
+    const match = this.data.matches.find((m) => m.matchId === matchId);
+    if (!match) return false;
+    Object.assign(match, patch);
+    this._save();
+    return true;
+  }
+
+  /**
+   * Move one match record to another MatchArchive instance (e.g. between
+   * rankedArchive and otherArchive) and apply optional field patches.
+   */
+  transferMatchTo(matchId, targetArchive, patch = {}) {
+    const index = this.data.matches.findIndex((m) => m.matchId === matchId);
+    if (index === -1) return false;
+    const [match] = this.data.matches.splice(index, 1);
+    Object.assign(match, patch);
+    targetArchive.data.matches.push(match);
+    targetArchive.data.matches.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    if (!targetArchive.data.localAccountId && match.localAccountId) {
+      targetArchive.data.localAccountId = match.localAccountId;
+    }
+    this._save();
+    targetArchive._save();
+    return true;
+  }
+
   /** Career totals + derived rates for the Hub's stat tiles — see the file-level note on why these are summed, not cached. */
   getLifetimeStats() {
     let kills = 0;
@@ -340,11 +380,9 @@ class MatchArchive {
       .reverse()
       .slice(0, limit)
       .map((m) => {
-        const t0 = m.teams && m.teams[0] ? m.teams[0].length : 0;
-        const t1 = m.teams && m.teams[1] ? m.teams[1].length : 0;
         const is2v2 = m.is2v2 !== undefined
           ? Boolean(m.is2v2)
-          : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+          : Boolean(typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel));
         return {
           matchId: m.matchId,
           timestamp: m.timestamp,
@@ -362,6 +400,8 @@ class MatchArchive {
           deaths: m.deaths,
           assists: m.assists,
           inferred: m.inferred,
+          tags: Array.isArray(m.tags) ? m.tags : (is2v2 ? ['2v2'] : (this.filePath && this.filePath.includes('other') ? ['Casual'] : ['Ranked'])),
+          modeOverride: m.modeOverride ?? null,
         };
       });
   }
@@ -627,11 +667,9 @@ class MatchArchive {
 
     const checkIs2v2 = (m) => {
       if (!m) return false;
-      const t0 = Array.isArray(m.teams?.[0]) ? m.teams[0].length : 0;
-      const t1 = Array.isArray(m.teams?.[1]) ? m.teams[1].length : 0;
       return m.is2v2 !== undefined
         ? Boolean(m.is2v2)
-        : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel)));
+        : Boolean(typeof m.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(m.mapLabel));
     };
 
     for (const match of this.data.matches) {

@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld('hubAPI', {
   // fetched on demand when a Recent Matches row is clicked, not pushed with
   // every hub:update (those stay list-summary-sized).
   getMatchDetail: (matchId) => ipcRenderer.invoke('hub:get-match-detail', matchId),
+  setMatchMode: (matchId, targetMode) => ipcRenderer.invoke('hub:set-match-mode', matchId, targetMode),
+  setMatchTags: (matchId, tags) => ipcRenderer.invoke('hub:set-match-tags', matchId, tags),
   // Removes one match (from whichever archive — ranked or other — it lives
   // in) and returns true/false. Caller is responsible for confirming with
   // the user first; this performs the deletion unconditionally.

@@ -117,6 +117,9 @@ function recordCompletedMatch(
   if (!row) return false;
 
   const targetArchive = isRankedFinalScore(myScore, oppScore) ? rankedArchive : otherArchive;
+  const is2v2 = match.is2v2 !== undefined
+    ? Boolean(match.is2v2)
+    : Boolean(typeof roundMaps[0]?.label === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(roundMaps[0]?.label));
 
   let prevWins0 = 0;
   const mapRoundsDetailed = [];
@@ -243,11 +246,6 @@ function recordCompletedMatch(
 
   const team0Name = match.team0Name || 'Blue Team';
   const team1Name = match.team1Name || 'Orange Team';
-  const t0 = stats.teams && stats.teams[0] ? stats.teams[0].length : 0;
-  const t1 = stats.teams && stats.teams[1] ? stats.teams[1].length : 0;
-  const is2v2 = match.is2v2 !== undefined
-    ? Boolean(match.is2v2)
-    : Boolean((t0 > 0 && t1 > 0 && Math.max(t0, t1) <= 2) || (typeof roundMaps[0]?.label === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(roundMaps[0]?.label)));
 
   targetArchive.recordMatch({
     matchId,
@@ -277,6 +275,7 @@ function recordCompletedMatch(
     deaths: row.deaths,
     assists: row.assists,
     weaponBreakdown: row.weaponBreakdown,
+    tags: is2v2 ? ['2v2'] : (targetArchive === rankedArchive ? ['Ranked'] : ['Casual']),
   });
   return true;
 }
@@ -295,6 +294,64 @@ function isRankedFinalScore(myScore, oppScore) {
   if (myScore === 7 && oppScore <= 6) return true;
   if (oppScore === 7 && myScore <= 6) return true;
   return false;
+}
+
+/**
+ * Read `filePath` fully, independently of any live tailing, and record any
+ * completed match it contains that isn't already in either archive. Uses a
+ * throwaway parser + MapTracker scoped to just this one file — never
+ * shares state with main.js's live-tailing parser/mapTracker. A missing
+ * file (e.g. no Player-prev.log yet on a first-ever run) is not an error.
+ *
+ * `allowInferred`: when true, also attempts inferred completion (see
+ * recordCompletedMatch) on whatever's left as this scan's own in-progress
+ * match, if any. Pass this as true only when the game process is already
+ * confirmed not running (main.js checks once at startup) — there's no
+ * multi-poll debounce here the way there is for the live path, since a
+ * single startup-time check isn't racing against the game still launching.
+ */
+const path = require('node:path');
+const zlib = require('node:zlib');
+
+/**
+ * Extract raw text of Player.log from a PKZIP buffer (e.g. LogArchive*.zip).
+ */
+function readZipLogText(buffer) {
+  let offset = 0;
+  while (offset < buffer.length - 30) {
+    if (buffer.readUInt32LE(offset) === 0x04034b50) {
+      const method = buffer.readUInt16LE(offset + 8);
+      const compSize = buffer.readUInt32LE(offset + 18);
+      const fileNameLen = buffer.readUInt16LE(offset + 26);
+      const extraLen = buffer.readUInt16LE(offset + 28);
+      const dataStart = offset + 30 + fileNameLen + extraLen;
+
+      let dataBuf;
+      if (compSize > 0) {
+        dataBuf = buffer.subarray(dataStart, dataStart + compSize);
+      } else {
+        dataBuf = buffer.subarray(dataStart);
+      }
+
+      try {
+        let decompressed;
+        if (method === 0) {
+          decompressed = dataBuf;
+        } else if (method === 8) {
+          decompressed = zlib.inflateRawSync(dataBuf);
+        }
+        if (decompressed) {
+          return decompressed.toString('utf8');
+        }
+      } catch {
+        // Continue searching if this entry failed
+      }
+      offset = dataStart + (compSize > 0 ? compSize : 1);
+    } else {
+      offset++;
+    }
+  }
+  return null;
 }
 
 /**
@@ -373,4 +430,133 @@ async function scanLogFileForCompletedMatches({
   return { scanned: true, recorded, matchesInFile: parser.matches.length };
 }
 
-module.exports = { recordCompletedMatch, scanLogFileForCompletedMatches };
+/**
+ * Scan a single LogArchive*.zip file for completed matches.
+ */
+async function scanZipFileForCompletedMatches({
+  zipPath,
+  DueProcessLogParser,
+  computeMatchStats,
+  roundRoleByRosterSide,
+  rankedArchive,
+  otherArchive,
+  findLocalAccountId,
+  deriveFinalScoreFromRounds,
+  allowInferred = false,
+}) {
+  let buffer;
+  try {
+    buffer = await fs.readFile(zipPath);
+  } catch {
+    return { scanned: false, recorded: 0, matchesInFile: 0 };
+  }
+
+  const text = readZipLogText(buffer);
+  if (!text) return { scanned: false, recorded: 0, matchesInFile: 0 };
+
+  const parser = new DueProcessLogParser();
+  const mapTracker = new MapTracker();
+  parser.feedText(text);
+  parser.end();
+  mapTracker.feedText(text);
+
+  let accountId = rankedArchive.getLocalAccountId() || otherArchive.getLocalAccountId();
+  if (!accountId) {
+    accountId = findLocalAccountId(text);
+    if (accountId) {
+      rankedArchive.setLocalAccountId(accountId);
+      otherArchive.setLocalAccountId(accountId);
+    }
+  }
+
+  let recorded = 0;
+  for (const match of parser.matches) {
+    if (recordCompletedMatch(match, { rankedArchive, otherArchive, computeMatchStats, roundRoleByRosterSide, mapTracker, accountId })) {
+      recorded += 1;
+    }
+  }
+
+  if (allowInferred && parser.current) {
+    if (
+      recordCompletedMatch(parser.current, {
+        rankedArchive,
+        otherArchive,
+        computeMatchStats,
+        roundRoleByRosterSide,
+        mapTracker,
+        accountId,
+        inferred: true,
+        deriveFinalScoreFromRounds,
+      })
+    ) {
+      recorded += 1;
+    }
+  }
+
+  return { scanned: true, recorded, matchesInFile: parser.matches.length };
+}
+
+/**
+ * Find all LogArchive*.zip files in `logDir`, sort by mtime ascending (oldest first),
+ * and scan each for completed matches.
+ */
+async function scanArchiveZipsForCompletedMatches({
+  logDir,
+  DueProcessLogParser,
+  computeMatchStats,
+  roundRoleByRosterSide,
+  rankedArchive,
+  otherArchive,
+  findLocalAccountId,
+  deriveFinalScoreFromRounds,
+  allowInferred = false,
+}) {
+  let entries;
+  try {
+    entries = await fs.readdir(logDir);
+  } catch {
+    return { zipCount: 0, recorded: 0 };
+  }
+
+  const zipFiles = entries.filter((name) => name.startsWith('LogArchive') && name.endsWith('.zip'));
+  if (zipFiles.length === 0) return { zipCount: 0, recorded: 0 };
+
+  const zipStats = [];
+  for (const file of zipFiles) {
+    const fullPath = path.join(logDir, file);
+    try {
+      const stat = await fs.stat(fullPath);
+      zipStats.push({ file, fullPath, mtimeMs: stat.mtimeMs });
+    } catch {
+      // ignore
+    }
+  }
+  zipStats.sort((a, b) => a.mtimeMs - b.mtimeMs);
+
+  let totalRecorded = 0;
+  for (const item of zipStats) {
+    const res = await scanZipFileForCompletedMatches({
+      zipPath: item.fullPath,
+      DueProcessLogParser,
+      computeMatchStats,
+      roundRoleByRosterSide,
+      rankedArchive,
+      otherArchive,
+      findLocalAccountId,
+      deriveFinalScoreFromRounds,
+      allowInferred,
+    });
+    totalRecorded += res.recorded;
+  }
+
+  return { zipCount: zipStats.length, recorded: totalRecorded };
+}
+
+module.exports = {
+  recordCompletedMatch,
+  scanLogFileForCompletedMatches,
+  scanZipFileForCompletedMatches,
+  scanArchiveZipsForCompletedMatches,
+  readZipLogText,
+};
+
