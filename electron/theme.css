@@ -440,7 +440,7 @@ table.rows tr:last-child td {
 }
 
 /* ----------------------------------------------------------------------
-   Overlay Keybind Setting in Hub Sidebar
+   Keybind Settings in Hub Settings Menu
    ---------------------------------------------------------------------- */
 .keybind-box {
   display: flex;

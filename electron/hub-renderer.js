@@ -384,6 +384,7 @@ const views = {
   weapons: document.getElementById('weaponsView'),
   playedWith: document.getElementById('playedWithView'),
   maps: document.getElementById('mapsView'),
+  settings: document.getElementById('settingsView'),
 };
 const navItems = [...document.querySelectorAll('.nav-item[data-view]')];
 let currentView = 'home';
