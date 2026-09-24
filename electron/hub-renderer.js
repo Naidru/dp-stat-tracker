@@ -1904,8 +1904,20 @@ async function confirmAndDeleteMatch(matchId, matchup) {
 const matchDetailBackdrop = document.getElementById('matchDetailBackdrop');
 const matchDetailTeams = document.getElementById('matchDetailTeams');
 const matchDetailMeta = document.getElementById('matchDetailMeta');
+const matchDetailExportTextBtn = document.getElementById('matchDetailExportText');
+const matchDetailExportImageBtn = document.getElementById('matchDetailExportImage');
+const matchDetailRoundTimelinePanel = document.getElementById('matchDetailRoundTimelinePanel');
+const matchDetailRoundTitle = document.getElementById('matchDetailRoundTitle');
+const matchDetailRoundScoreBadge = document.getElementById('matchDetailRoundScoreBadge');
+const matchDetailPrevRoundBtn = document.getElementById('matchDetailPrevRoundBtn');
+const matchDetailNextRoundBtn = document.getElementById('matchDetailNextRoundBtn');
+const matchDetailRoundKillList = document.getElementById('matchDetailRoundKillList');
+
 let matchDetailCurrentId = null;
 let matchDetailCurrentMatchup = null;
+let matchDetailCurrentMatch = null;
+let matchDetailSelectedRoundIndex = 0;
+let matchDetailRoundCards = [];
 
 const TILESET_ICONS = {
   factory: 'assets/tilesets/factory.webp',
@@ -1929,6 +1941,8 @@ async function openMatchDetail(matchId) {
 
   matchDetailCurrentId = matchId;
   matchDetailCurrentMatchup = match.matchup || `${match.team0Name || 'Blue Team'} vs ${match.team1Name || 'Orange Team'}`;
+  matchDetailCurrentMatch = match;
+  matchDetailRoundCards = [];
 
   const matchDetailMapContainer = document.getElementById('matchDetailMapContainer');
   if (matchDetailMapContainer) {
@@ -2072,6 +2086,9 @@ async function openMatchDetail(matchId) {
         : `<span style="font-size:10px;font-weight:700">${tilesetClean ? escapeHtml(tilesetClean.slice(0, 2)) : '?'}</span>`;
 
       card.innerHTML = iconHtml;
+      const roundIdx = i;
+      card.addEventListener('click', () => selectMatchDetailRound(roundIdx, match));
+      matchDetailRoundCards.push(card);
 
       // Your own kill count for this round, shown as small reticle marks
       // above the card — only reliable now that the round-ending kill
@@ -2097,6 +2114,20 @@ async function openMatchDetail(matchId) {
       matchDetailMapContainer.appendChild(column);
     }
   }
+
+  if (matchDetailPrevRoundBtn) {
+    matchDetailPrevRoundBtn.onclick = () => selectMatchDetailRound(matchDetailSelectedRoundIndex - 1, match);
+  }
+  if (matchDetailNextRoundBtn) {
+    matchDetailNextRoundBtn.onclick = () => selectMatchDetailRound(matchDetailSelectedRoundIndex + 1, match);
+  }
+  if (matchDetailExportTextBtn) {
+    matchDetailExportTextBtn.onclick = () => exportRoundOutcomesText(match);
+  }
+  if (matchDetailExportImageBtn) {
+    matchDetailExportImageBtn.onclick = () => exportRoundOutcomesImage(match);
+  }
+  selectMatchDetailRound(0, match);
 
 function updateMatchDetailMeta(match) {
   const modeClass = match.isRanked ? 'ranked' : match.is2v2 ? '2v2' : 'other';
@@ -2228,10 +2259,400 @@ function renderMatchDetailTags(match) {
   matchDetailBackdrop.hidden = false;
 }
 
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function showHubToast(message, kind = 'info') {
+  if (!mapScreenshotToast) return;
+  mapScreenshotToast.textContent = message;
+  mapScreenshotToast.className = kind === 'error' ? 'toast--error' : '';
+  mapScreenshotToast.hidden = false;
+  clearTimeout(mapScreenshotToastTimer);
+  mapScreenshotToastTimer = setTimeout(() => {
+    mapScreenshotToast.hidden = true;
+  }, 4000);
+}
+
+function selectMatchDetailRound(roundIndex, match) {
+  const mapRounds = match?.mapRounds || match?.roundMaps || [];
+  const totalRounds = match?.roundCount || mapRounds.length || 0;
+  if (totalRounds <= 0) {
+    if (matchDetailRoundTimelinePanel) matchDetailRoundTimelinePanel.hidden = true;
+    return;
+  }
+  if (matchDetailRoundTimelinePanel) matchDetailRoundTimelinePanel.hidden = false;
+  if (roundIndex < 0) roundIndex = 0;
+  if (roundIndex >= totalRounds) roundIndex = totalRounds - 1;
+  matchDetailSelectedRoundIndex = roundIndex;
+
+  // Highlight active round card
+  matchDetailRoundCards.forEach((c, idx) => {
+    if (c) c.classList.toggle('is-active', idx === roundIndex);
+  });
+
+  // Prev / Next button states
+  if (matchDetailPrevRoundBtn) matchDetailPrevRoundBtn.disabled = roundIndex <= 0;
+  if (matchDetailNextRoundBtn) matchDetailNextRoundBtn.disabled = roundIndex >= totalRounds - 1;
+
+  const r = mapRounds[roundIndex];
+  if (!r) {
+    if (matchDetailRoundTitle) matchDetailRoundTitle.textContent = `ROUND ${roundIndex + 1}`;
+    if (matchDetailRoundKillList) matchDetailRoundKillList.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-style:italic;font-size:12px">No data for this round.</div>';
+    return;
+  }
+
+  let tileset = r.tileset && r.tileset !== 'Unknown' ? r.tileset.replace(/_Day$/i, '') : null;
+  let mapName = r.mapName && r.mapName !== 'Unknown' ? r.mapName : (r.mapLabel || 'Unknown Map');
+  if (typeof r === 'string') {
+    const tm = /^\[([^\]]+)\]/.exec(r);
+    if (tm) tileset = tm[1];
+    mapName = r.replace(/^\[[^\]]+\]\s*/, '');
+  }
+  const roundNum = r.round || (roundIndex + 1);
+  const roleText = r.sideRole ? ` · ${r.sideRole}` : '';
+  const resultText = typeof r.won === 'boolean' ? (r.won ? ' · WIN' : ' · LOSS') : '';
+  const conditionText = r.roundResult ? ` (${r.roundResult.toUpperCase()})` : '';
+
+  if (matchDetailRoundTitle) {
+    const mapPart = tileset ? `[${tileset.toUpperCase()}] ${mapName.toUpperCase()}` : mapName.toUpperCase();
+    matchDetailRoundTitle.textContent = `ROUND ${roundNum} · ${mapPart}${roleText}${resultText}${conditionText}`;
+  }
+
+  // Running score up to this round
+  let score0 = 0;
+  let score1 = 0;
+  for (let i = 0; i <= roundIndex && i < mapRounds.length; i++) {
+    const mr = mapRounds[i];
+    if (mr && mr.winnerSide === 0) score0++;
+    else if (mr && mr.winnerSide === 1) score1++;
+  }
+  if (matchDetailRoundScoreBadge) {
+    matchDetailRoundScoreBadge.textContent = `Running Score: ${score0} - ${score1}`;
+  }
+
+  // Populate Kill timeline
+  if (matchDetailRoundKillList) {
+    matchDetailRoundKillList.innerHTML = '';
+    const kills = r.kills;
+    if (!kills) {
+      matchDetailRoundKillList.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-style:italic;font-size:12px">No kill timeline recorded for this round (older archive record).</div>';
+      return;
+    }
+    if (kills.length === 0) {
+      matchDetailRoundKillList.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-style:italic;font-size:12px">No kills occurred in this round.</div>';
+      return;
+    }
+
+    kills.forEach((k) => {
+      const row = document.createElement('div');
+      row.className = 'round-kill-row';
+
+      const timeEl = document.createElement('span');
+      timeEl.className = 'round-kill-time';
+      timeEl.textContent = k.timeFormatted || `${Math.floor((k.seconds || 0) / 60)}:${String((k.seconds || 0) % 60).padStart(2, '0')}`;
+      row.appendChild(timeEl);
+
+      const killerEl = document.createElement('span');
+      killerEl.className = `round-kill-actor ${k.killerSide === 0 ? 'round-kill-actor--side0' : k.killerSide === 1 ? 'round-kill-actor--side1' : ''}`;
+      killerEl.textContent = k.killerName || 'Unknown';
+      row.appendChild(killerEl);
+
+      const weaponEl = document.createElement('span');
+      weaponEl.className = 'round-kill-weapon';
+      weaponEl.textContent = k.weapon || 'Killed';
+      row.appendChild(weaponEl);
+
+      const arrowEl = document.createElement('span');
+      arrowEl.className = 'round-kill-arrow';
+      arrowEl.textContent = '➔';
+      row.appendChild(arrowEl);
+
+      const victimEl = document.createElement('span');
+      victimEl.className = `round-kill-actor ${k.victimSide === 0 ? 'round-kill-actor--side0' : k.victimSide === 1 ? 'round-kill-actor--side1' : ''}`;
+      victimEl.textContent = k.victimName || 'Unknown';
+      row.appendChild(victimEl);
+
+      if (k.isTeamKill) {
+        const tkBadge = document.createElement('span');
+        tkBadge.className = 'round-kill-badge round-kill-badge--tk';
+        tkBadge.textContent = 'TEAM KILL';
+        row.appendChild(tkBadge);
+      }
+      if (k.isEnvironment) {
+        const envBadge = document.createElement('span');
+        envBadge.className = 'round-kill-badge round-kill-badge--env';
+        envBadge.textContent = 'ENV';
+        row.appendChild(envBadge);
+      }
+
+      matchDetailRoundKillList.appendChild(row);
+    });
+  }
+}
+
+async function exportRoundOutcomesText(match) {
+  if (!match) return;
+  const mapRounds = match.mapRounds || match.roundMaps || [];
+  const team0 = match.team0Name || 'Blue Team';
+  const team1 = match.team1Name || 'Orange Team';
+  const score0 = match.finalScore?.side0 ?? match.myScore ?? 0;
+  const score1 = match.finalScore?.side1 ?? match.oppScore ?? 0;
+  const dateStr = match.timestamp ? new Date(match.timestamp).toLocaleString() : 'Unknown Date';
+  const modeStr = match.modeOverride || (match.isRanked ? 'Ranked' : match.is2v2 ? '2v2' : 'Casual');
+  const outcomeSummary = match.tied ? 'TIE' : (match.won ? 'WIN' : 'LOSS');
+
+  const lines = [
+    '========================================================================',
+    '                   DUE PROCESS — ROUND OUTCOMES REPORT                   ',
+    '========================================================================',
+    `Matchup:     ${team0} vs ${team1}`,
+    `Final Score: ${score0} - ${score1} (${outcomeSummary})`,
+    `Mode:        ${modeStr}`,
+    `Date:        ${dateStr}`,
+    `Rounds:      ${mapRounds.length}`,
+    '------------------------------------------------------------------------',
+    ' ROUND-BY-ROUND OUTCOMES (Summary):',
+    '------------------------------------------------------------------------',
+  ];
+
+  let running0 = 0;
+  let running1 = 0;
+  let prevRole = null;
+
+  mapRounds.forEach((r, idx) => {
+    const roundNum = r.round || (idx + 1);
+    const tileset = r.tileset && r.tileset !== 'Unknown' ? r.tileset.replace(/_Day$/i, '') : '';
+    const mapName = r.mapName && r.mapName !== 'Unknown' ? r.mapName : (r.mapLabel || 'Unknown Map');
+    const mapStr = tileset ? `[${tileset}] ${mapName}` : mapName;
+    const role = r.sideRole || 'UNKNOWN';
+    const result = typeof r.won === 'boolean' ? (r.won ? 'WIN' : 'LOSS') : (r.winnerSide === 0 ? 'TEAM 0' : 'TEAM 1');
+    const condition = r.roundResult ? ` (${r.roundResult.toUpperCase()})` : '';
+
+    if (r.winnerSide === 0) running0++;
+    else if (r.winnerSide === 1) running1++;
+
+    if (prevRole && r.sideRole && prevRole !== r.sideRole) {
+      lines.push('  --- [SIDE SWITCH] ---');
+    }
+    prevRole = r.sideRole;
+
+    const rNumStr = String(roundNum).padStart(2, '0');
+    const scoreStr = `${running0} - ${running1}`;
+    lines.push(`  R${rNumStr} | ${mapStr.padEnd(28)} | Role: ${role.padEnd(7)} | Result: ${(result + condition).padEnd(20)} | Score: ${scoreStr}`);
+  });
+
+  lines.push('------------------------------------------------------------------------');
+  lines.push('Generated by Due Process Stat Tracker');
+  lines.push('========================================================================');
+
+  const textContent = lines.join('\r\n');
+
+  try {
+    await navigator.clipboard.writeText(textContent);
+  } catch (err) {
+    console.warn('Clipboard writeText failed:', err);
+  }
+
+  const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+  const filename = `round-outcomes-${(match.matchId || 'match').slice(0, 8)}.txt`;
+  downloadBlob(blob, filename);
+
+  showHubToast(`Round outcomes copied to clipboard & downloaded as ${filename}`);
+}
+
+async function exportRoundOutcomesImage(match) {
+  if (!match) return;
+  const mapRounds = match.mapRounds || match.roundMaps || [];
+  const totalRounds = mapRounds.length;
+  if (totalRounds === 0) return;
+
+  const team0 = match.team0Name || 'Blue Team';
+  const team1 = match.team1Name || 'Orange Team';
+  const score0 = match.finalScore?.side0 ?? match.myScore ?? 0;
+  const score1 = match.finalScore?.side1 ?? match.oppScore ?? 0;
+  const dateStr = match.timestamp ? new Date(match.timestamp).toLocaleDateString() : 'Unknown Date';
+  const modeStr = (match.modeOverride || (match.isRanked ? 'Ranked' : match.is2v2 ? '2v2' : 'Casual')).toUpperCase();
+  const outcomeSummary = match.tied ? 'TIE' : (match.won ? 'WIN' : 'LOSS');
+
+  const canvasWidth = 1000;
+  const cardsPerRow = 6;
+  const numRows = Math.ceil(totalRounds / cardsPerRow);
+  const cardWidth = 142;
+  const cardHeight = 150;
+  const gapX = 14;
+  const gapY = 16;
+  const startX = 36;
+  const startY = 160;
+  const canvasHeight = startY + numRows * (cardHeight + gapY) + 70;
+
+  const canvas = document.createElement('canvas');
+  const dpr = 2;
+  canvas.width = canvasWidth * dpr;
+  canvas.height = canvasHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#0d1013';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 20; x < canvasWidth; x += 25) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvasHeight);
+    ctx.stroke();
+  }
+  for (let y = 20; y < canvasHeight; y += 25) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvasWidth, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = '#222c38';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(16, 16, canvasWidth - 32, canvasHeight - 32);
+  ctx.fillStyle = '#7fb6e8';
+  ctx.font = 'bold 16px monospace';
+  ctx.fillText('+', 12, 22);
+  ctx.fillText('+', canvasWidth - 24, 22);
+  ctx.fillText('+', 12, canvasHeight - 12);
+  ctx.fillText('+', canvasWidth - 24, canvasHeight - 12);
+
+  ctx.fillStyle = '#7fb6e8';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillText('DUE PROCESS STAT TRACKER · ROUND OUTCOMES', 36, 48);
+
+  ctx.fillStyle = '#f0f4f8';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText(`${team0} vs ${team1}`, 36, 80);
+
+  let metaX = 36;
+  const drawPill = (text, bg, fg, border) => {
+    ctx.font = 'bold 11px sans-serif';
+    const textWidth = ctx.measureText(text).width;
+    const pillW = textWidth + 16;
+    ctx.fillStyle = bg;
+    ctx.fillRect(metaX, 96, pillW, 22);
+    if (border) {
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(metaX, 96, pillW, 22);
+    }
+    ctx.fillStyle = fg;
+    ctx.fillText(text, metaX + 8, 111);
+    metaX += pillW + 10;
+  };
+
+  drawPill(modeStr, 'rgba(127, 182, 232, 0.15)', '#7fb6e8', 'rgba(127, 182, 232, 0.4)');
+  const resBg = outcomeSummary === 'WIN' ? 'rgba(34, 197, 94, 0.18)' : outcomeSummary === 'LOSS' ? 'rgba(209, 86, 94, 0.18)' : 'rgba(255, 255, 255, 0.1)';
+  const resFg = outcomeSummary === 'WIN' ? '#22c55e' : outcomeSummary === 'LOSS' ? '#d1565e' : '#cbd5e1';
+  drawPill(`FINAL: ${score0} - ${score1} (${outcomeSummary})`, resBg, resFg);
+  drawPill(`${totalRounds} ROUNDS`, 'rgba(255, 255, 255, 0.05)', '#94a3b8');
+  drawPill(dateStr, 'rgba(255, 255, 255, 0.05)', '#64748b');
+
+  ctx.strokeStyle = '#1e2630';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(36, 134);
+  ctx.lineTo(canvasWidth - 36, 134);
+  ctx.stroke();
+
+  let r0 = 0;
+  let r1 = 0;
+  mapRounds.forEach((r, idx) => {
+    const col = idx % cardsPerRow;
+    const row = Math.floor(idx / cardsPerRow);
+    const x = startX + col * (cardWidth + gapX);
+    const y = startY + row * (cardHeight + gapY);
+
+    if (r.winnerSide === 0) r0++;
+    else if (r.winnerSide === 1) r1++;
+
+    const isWin = Boolean(r.won);
+    const isSave = r.roundResult === 'save';
+    const borderColor = isWin ? '#22c55e' : '#d1565e';
+    const cardBg = isWin ? 'rgba(34, 197, 94, 0.08)' : 'rgba(209, 86, 94, 0.08)';
+
+    ctx.fillStyle = cardBg;
+    ctx.fillRect(x, y, cardWidth, cardHeight);
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, cardWidth, cardHeight);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(`ROUND ${r.round || (idx + 1)}`, x + 10, y + 22);
+
+    const tileset = r.tileset && r.tileset !== 'Unknown' ? r.tileset.replace(/_Day$/i, '') : '';
+    const mapName = r.mapName && r.mapName !== 'Unknown' ? r.mapName : (r.mapLabel || 'Map');
+    ctx.fillStyle = '#7fb6e8';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(tileset ? `[${tileset}]` : '', x + 10, y + 42);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '10px sans-serif';
+    const trimmedMap = mapName.length > 17 ? mapName.slice(0, 16) + '…' : mapName;
+    ctx.fillText(trimmedMap, x + 10, y + 56);
+
+    const role = (r.sideRole || 'UNKNOWN').toUpperCase();
+    const roleColor = role === 'ATTACK' ? '#f4848d' : role === 'DEFENSE' ? '#84c0f4' : '#94a3b8';
+    ctx.fillStyle = roleColor;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(role, x + 10, y + 78);
+
+    const resText = (isWin ? 'WIN' : 'LOSS') + (isSave ? ' · SAVE' : (r.roundResult ? ` · ${r.roundResult.toUpperCase()}` : ''));
+    ctx.fillStyle = isWin ? '#22c55e' : '#d1565e';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(resText, x + 10, y + 102);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.fillRect(x + 1, y + cardHeight - 32, cardWidth - 2, 31);
+    ctx.strokeStyle = '#1e2630';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 1, y + cardHeight - 32, cardWidth - 2, 31);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(`Score: ${r0} - ${r1}`, x + 10, y + cardHeight - 12);
+  });
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px sans-serif';
+  ctx.fillText(`Due Process Stat Tracker · Generated on ${new Date().toLocaleString()}`, 36, canvasHeight - 24);
+
+  canvas.toBlob(async (blob) => {
+    if (!blob) return;
+
+    try {
+      if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      }
+    } catch (err) {
+      console.warn('Clipboard write image failed:', err);
+    }
+
+    const filename = `round-outcomes-${(match.matchId || 'match').slice(0, 8)}.png`;
+    downloadBlob(blob, filename);
+
+    showHubToast(`Round outcomes image copied to clipboard & downloaded as ${filename}`);
+  }, 'image/png');
+}
+
 function closeMatchDetail() {
   matchDetailBackdrop.hidden = true;
   matchDetailCurrentId = null;
   matchDetailCurrentMatchup = null;
+  matchDetailCurrentMatch = null;
+  matchDetailRoundCards = [];
 }
 
 // Single delegated listener on the backdrop — never on #matchDetailClose

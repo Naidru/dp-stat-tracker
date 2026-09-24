@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "web": "node server.js",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "test": "node test/test_round_features.js"
   },
   "devDependencies": {
     "electron": "^43.4.0",

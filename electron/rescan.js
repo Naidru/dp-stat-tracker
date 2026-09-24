@@ -27,6 +27,7 @@
 
 const fs = require('node:fs/promises');
 const { MapTracker } = require('./map-tracker');
+const { WEAPON_META } = require('./match-archive');
 
 /**
  * Record one match into the appropriate archive, if it isn't there yet.
@@ -155,6 +156,24 @@ function recordCompletedMatch(
     return match.killFeed.filter((entry) => entry.tick >= bounds.min && entry.tick < nextRoundMin);
   }
   const entityNames = new Map([...match.players.values()].map((p) => [p.entityId, p.name?.toUpperCase()]));
+  const entityInfo = new Map();
+  for (const p of match.players.values()) {
+    if (p.entityId !== undefined && p.entityId !== null) {
+      entityInfo.set(p.entityId, { name: p.name, side: p.rosterSide, accountId: p.accountId });
+    }
+  }
+  for (let r = 1; r <= totalRounds; r++) {
+    const robj = match.roundsByNumber.get(r);
+    if (robj) {
+      for (const side of [0, 1]) {
+        for (const m of (robj.teamBlocks?.[side]?.members ?? [])) {
+          if (m.entityId !== undefined && m.entityId !== null) {
+            entityInfo.set(m.entityId, { name: m.name, side, accountId: m.accountId });
+          }
+        }
+      }
+    }
+  }
 
   for (let r = 1; r <= totalRounds; r++) {
     const roundObj = match.roundsByNumber.get(r);
@@ -222,7 +241,8 @@ function recordCompletedMatch(
         .filter((k) => k.attackerId === me.entityId && k.attackerSide !== k.victimSide)
         .map((k) => entityNames.get(k.victimId))
     );
-    for (const entry of killFeedForRound(r)) {
+    const feedEntries = killFeedForRound(r);
+    for (const entry of feedEntries) {
       if (entry.isEnvironmentKill) continue;
       const victimUpper = entry.victimName?.toUpperCase();
       if (entry.killerName?.toUpperCase() === me.name?.toUpperCase() && victimUpper && !myKillVictimNames.has(victimUpper)) {
@@ -230,6 +250,111 @@ function recordCompletedMatch(
       }
     }
     const myKills = myKillVictimNames.size;
+
+    // Detailed per-round kill timeline: who kills whom with what, and elapsed timings
+    const bounds = roundTickBounds.get(r);
+    let startTick = bounds ? bounds.min : 0;
+    if ((!bounds || bounds.min === undefined) && feedEntries.length > 0) {
+      startTick = Math.min(...feedEntries.map((e) => e.tick));
+    }
+
+    const roundKills = [];
+    const recordedVictimNames = new Set();
+
+    for (const k of (roundObj?.kills ?? [])) {
+      const killer = entityInfo.get(k.attackerId);
+      const victim = entityInfo.get(k.victimId);
+      const killerName = killer?.name || entityNames.get(k.attackerId) || `Player ${k.attackerId}`;
+      const victimName = victim?.name || entityNames.get(k.victimId) || `Player ${k.victimId}`;
+      const killerSide = k.attackerSide !== undefined ? k.attackerSide : (killer?.side ?? null);
+      const victimSide = k.victimSide !== undefined ? k.victimSide : (victim?.side ?? null);
+      const weaponCode = k.damageSource;
+      const weaponLabel = (weaponCode !== undefined && WEAPON_META[weaponCode]?.label)
+        ? WEAPON_META[weaponCode].label
+        : (weaponCode !== undefined ? `Weapon #${weaponCode}` : 'Unknown');
+      const isTeamKill = killerSide !== null && victimSide !== null && killerSide === victimSide;
+      const tick = Number(k.tick);
+      const deltaTicks = Math.max(0, tick - startTick);
+      const seconds = Math.round(deltaTicks / 20);
+      const mins = Math.floor(seconds / 60);
+      const secs = String(seconds % 60).padStart(2, '0');
+      const timeFormatted = `${mins}:${secs}`;
+
+      roundKills.push({
+        tick,
+        seconds,
+        timeFormatted,
+        killerName,
+        killerSide,
+        victimName,
+        victimSide,
+        weapon: weaponLabel,
+        damageSource: weaponCode,
+        isTeamKill,
+        isEnvironment: false,
+      });
+      if (victimName) recordedVictimNames.add(victimName.toUpperCase());
+    }
+
+    for (const entry of feedEntries) {
+      if (entry.isEnvironmentKill) {
+        const tick = Number(entry.tick);
+        const deltaTicks = Math.max(0, tick - startTick);
+        const seconds = Math.round(deltaTicks / 20);
+        const mins = Math.floor(seconds / 60);
+        const secs = String(seconds % 60).padStart(2, '0');
+        const timeFormatted = `${mins}:${secs}`;
+        const victim = [...entityInfo.values()].find((e) => e.name?.toUpperCase() === entry.victimName?.toUpperCase());
+        roundKills.push({
+          tick,
+          seconds,
+          timeFormatted,
+          killerName: entry.killerName,
+          killerSide: null,
+          victimName: entry.victimName,
+          victimSide: victim?.side ?? null,
+          weapon: 'UAV Zap',
+          damageSource: null,
+          isTeamKill: false,
+          isEnvironment: true,
+        });
+        continue;
+      }
+      const victimUpper = entry.victimName?.toUpperCase();
+      if (victimUpper && !recordedVictimNames.has(victimUpper)) {
+        recordedVictimNames.add(victimUpper);
+        const killer = [...entityInfo.values()].find((e) => e.name?.toUpperCase() === entry.killerName?.toUpperCase());
+        const victim = [...entityInfo.values()].find((e) => e.name?.toUpperCase() === entry.victimName?.toUpperCase());
+        const killerSide = killer?.side ?? null;
+        const victimSide = victim?.side ?? null;
+        const tick = Number(entry.tick);
+        const deltaTicks = Math.max(0, tick - startTick);
+        const seconds = Math.round(deltaTicks / 20);
+        const mins = Math.floor(seconds / 60);
+        const secs = String(seconds % 60).padStart(2, '0');
+        const timeFormatted = `${mins}:${secs}`;
+        let weaponStr = entry.verb || 'Killed';
+        const spriteMatch = /name="([^"]+)"/i.exec(weaponStr);
+        if (spriteMatch) {
+          weaponStr = spriteMatch[1];
+        }
+        roundKills.push({
+          tick,
+          seconds,
+          timeFormatted,
+          killerName: entry.killerName,
+          killerSide,
+          victimName: entry.victimName,
+          victimSide,
+          weapon: weaponStr,
+          damageSource: null,
+          isTeamKill: killerSide !== null && victimSide !== null && killerSide === victimSide,
+          isEnvironment: false,
+        });
+      }
+    }
+
+    roundKills.sort((a, b) => a.tick - b.tick);
 
     mapRoundsDetailed.push({
       round: r,
@@ -241,6 +366,7 @@ function recordCompletedMatch(
       won: me.rosterSide === winnerSide,
       sideRole,
       roundResult,
+      kills: roundKills,
     });
   }
 
