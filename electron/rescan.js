@@ -256,7 +256,6 @@ function recordCompletedMatch(
         // entityId) for any attacker death Stats::Kill missed.
         const attackNamesById = new Map(attackBlock.members.map((m) => [m.entityId, m.name?.toUpperCase()]));
         for (const entry of feedEntries) {
-          if (entry.isEnvironmentKill) continue;
           for (const [entityId, name] of attackNamesById) {
             if (name && name === entry.victimName?.toUpperCase()) attackDeadIds.add(entityId);
           }
@@ -344,6 +343,7 @@ function recordCompletedMatch(
         const secs = String(seconds % 60).padStart(2, '0');
         const timeFormatted = `${mins}:${secs}`;
         const victim = [...entityInfo.values()].find((e) => e.name?.toUpperCase() === entry.victimName?.toUpperCase());
+        const isPit = Boolean(entry.isPitDeath || entry.killerName?.toUpperCase() === 'PIT' || entry.verb?.toUpperCase() === 'ROASTED');
         roundKills.push({
           tick,
           seconds,
@@ -352,11 +352,13 @@ function recordCompletedMatch(
           killerSide: null,
           victimName: entry.victimName,
           victimSide: victim?.side ?? null,
-          weapon: 'UAV Zap',
+          weapon: isPit ? 'Pit' : (entry.killerName?.toUpperCase() === 'UAV' ? 'UAV Zap' : (entry.verb || 'Environment')),
           damageSource: null,
           isTeamKill: false,
           isEnvironment: true,
+          isPit,
         });
+        if (entry.victimName) recordedVictimNames.add(entry.victimName.toUpperCase());
         continue;
       }
       const victimUpper = entry.victimName?.toUpperCase();
@@ -377,6 +379,7 @@ function recordCompletedMatch(
         if (spriteMatch) {
           weaponStr = spriteMatch[1];
         }
+        const isPit = Boolean(entry.isPitDeath || entry.killerName?.toUpperCase() === 'PIT' || entry.verb?.toUpperCase() === 'ROASTED');
         roundKills.push({
           tick,
           seconds,
@@ -385,10 +388,11 @@ function recordCompletedMatch(
           killerSide,
           victimName: entry.victimName,
           victimSide,
-          weapon: weaponStr,
+          weapon: isPit ? 'Pit' : weaponStr,
           damageSource: null,
           isTeamKill: killerSide !== null && victimSide !== null && killerSide === victimSide,
-          isEnvironment: false,
+          isEnvironment: isPit,
+          isPit,
         });
       }
     }

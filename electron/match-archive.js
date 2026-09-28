@@ -1125,6 +1125,99 @@ class MatchArchive {
     });
     return header + rows.join('\n');
   }
+
+  /**
+   * Aggregate environmental hazard deaths caused by the Pit ("PIT ROASTED <player>")
+   * across all matches in this archive.
+   */
+  getPitStats(localPlayerName) {
+    let totalDeaths = 0;
+    let selfDeaths = 0;
+    const victimCounts = new Map();
+    const claims = [];
+
+    const localUpper = localPlayerName ? localPlayerName.toUpperCase() : null;
+    const localId = this.getLocalAccountId();
+
+    for (const match of this.data.matches) {
+      if (!Array.isArray(match.mapRounds)) continue;
+      const matchMapLabel = match.mapLabel || 'Unknown Map';
+      match.mapRounds.forEach((mr, idx) => {
+        if (!Array.isArray(mr.kills)) return;
+        const roundNum = mr.round ?? mr.roundNumber ?? (idx + 1);
+        for (const k of mr.kills) {
+          const killerUpper = (k.killerName || '').toUpperCase();
+          const weaponUpper = (k.weapon || '').toUpperCase();
+          const isPit = Boolean(
+            k.isPit ||
+            killerUpper === 'PIT' ||
+            killerUpper.includes('PIT') ||
+            weaponUpper === 'ROASTED' ||
+            weaponUpper === 'PIT'
+          );
+          if (!isPit) continue;
+
+          totalDeaths += 1;
+          const victim = k.victimName || 'Unknown';
+          const victimUpper = victim.toUpperCase();
+          const existing = victimCounts.get(victimUpper);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            victimCounts.set(victimUpper, {
+              name: victim,
+              count: 1,
+            });
+          }
+
+          let isSelf = localUpper ? (victimUpper === localUpper) : false;
+          if (!isSelf && localId && Array.isArray(match.teams)) {
+            const myRow = match.teams[0]?.find((r) => r.accountId === localId) ?? match.teams[1]?.find((r) => r.accountId === localId);
+            if (myRow && myRow.name && myRow.name.toUpperCase() === victimUpper) {
+              isSelf = true;
+            }
+          }
+          if (isSelf) {
+            selfDeaths += 1;
+          }
+
+          const seconds = typeof k.seconds === 'number' ? k.seconds : 0;
+          const timeFormatted = k.timeFormatted || `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+          const is2v2 = match.is2v2 !== undefined
+            ? Boolean(match.is2v2)
+            : Boolean(typeof match.mapLabel === 'string' && /(?:^|\W)2v2(?:$|\W)/i.test(match.mapLabel));
+          const isSpectator = Boolean(match.isSpectator);
+          const mode = match.modeOverride || (isSpectator ? 'Spectator' : (is2v2 ? '2v2' : (this.filePath && this.filePath.includes('other') ? 'Casual' : 'Ranked')));
+
+          claims.push({
+            matchId: match.matchId,
+            timestamp: match.timestamp,
+            roundNumber: roundNum,
+            victimName: victim,
+            victimSide: k.victimSide,
+            isSelf,
+            timeFormatted,
+            mapLabel: mr.mapLabel || matchMapLabel,
+            mapName: mr.mapName || 'Unknown',
+            tileset: mr.tileset || 'Unknown',
+            mode,
+          });
+        }
+      });
+    }
+
+    const victims = [...victimCounts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    claims.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    return {
+      totalDeaths,
+      selfDeaths,
+      otherDeaths: totalDeaths - selfDeaths,
+      topVictim: victims[0] || null,
+      victims,
+      claims,
+    };
+  }
 }
 
 function round1(n) {
@@ -1431,6 +1524,43 @@ function cleanupSplitMatches(rankedArchive, otherArchive) {
   return mergedCount;
 }
 
+/**
+ * Combine Pit hazard deaths across both ranked and other/casual archives.
+ */
+function getGlobalPitStats(rankedArchive, otherArchive, localPlayerName) {
+  const ranked = rankedArchive ? rankedArchive.getPitStats(localPlayerName) : { totalDeaths: 0, selfDeaths: 0, otherDeaths: 0, topVictim: null, victims: [], claims: [] };
+  const other = otherArchive ? otherArchive.getPitStats(localPlayerName) : { totalDeaths: 0, selfDeaths: 0, otherDeaths: 0, topVictim: null, victims: [], claims: [] };
+
+  const totalDeaths = ranked.totalDeaths + other.totalDeaths;
+  const selfDeaths = ranked.selfDeaths + other.selfDeaths;
+  const otherDeaths = totalDeaths - selfDeaths;
+
+  const victimMap = new Map();
+  for (const v of [...ranked.victims, ...other.victims]) {
+    const key = v.name.toUpperCase();
+    const existing = victimMap.get(key);
+    if (existing) {
+      existing.count += v.count;
+    } else {
+      victimMap.set(key, { name: v.name, count: v.count });
+    }
+  }
+  const victims = [...victimMap.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  const allClaims = [...ranked.claims, ...other.claims].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  return {
+    totalDeaths,
+    selfDeaths,
+    otherDeaths,
+    topVictim: victims[0] || null,
+    victims,
+    claims: allClaims,
+    rankedTotal: ranked.totalDeaths,
+    otherTotal: other.totalDeaths,
+  };
+}
+
 module.exports = {
   MatchArchive,
   WEAPON_META,
@@ -1440,4 +1570,5 @@ module.exports = {
   mergeMapRounds,
   mergeArchivedMatches,
   cleanupSplitMatches,
+  getGlobalPitStats,
 };
