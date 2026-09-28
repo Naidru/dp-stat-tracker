@@ -1,32 +1,29 @@
 const { WEAPON_META, computeDplRating, getGlobalPitStats } = require('./match-archive');
 
 /**
- * Aggregates all matches across both Ranked and Other archives into an objective,
+ * Aggregates matches from the Ranked archive into an objective,
  * global player database suitable for public web hosting.
  *
  * It is completely uncentered from the local user: every player's stats,
  * win rates, combat metrics, role splits, and match appearances are calculated
- * universally across all recorded matches.
+ * universally across recorded ranked matches.
  */
-function buildGlobalPlayerDatabase(rankedArchive, otherArchive) {
-  const rankedMatches = rankedArchive?.data?.matches || [];
-  const otherMatches = otherArchive?.data?.matches || [];
+function buildGlobalPlayerDatabase(rankedArchive, otherArchive = null) {
+  const rankedMatches = rankedArchive?.data?.matches || (Array.isArray(rankedArchive) ? rankedArchive : []);
 
-  // Deduplicate matches by matchId if same match is present in both archives
+  // Deduplicate ranked matches by matchId
   const seenMatchIds = new Set();
   const dedupedMatches = [];
 
   for (const m of rankedMatches) {
-    if (m.matchId && !seenMatchIds.has(m.matchId)) {
-      seenMatchIds.add(m.matchId);
-      dedupedMatches.push({ ...m, isRanked: true });
+    if (m.isRanked === false) continue;
+    if (m.modeOverride && m.modeOverride.toLowerCase() !== 'ranked') continue;
+    const id = m.matchId || (m.timestamp ? `match_${m.timestamp}` : null);
+    if (id) {
+      if (seenMatchIds.has(id)) continue;
+      seenMatchIds.add(id);
     }
-  }
-  for (const m of otherMatches) {
-    if (m.matchId && !seenMatchIds.has(m.matchId)) {
-      seenMatchIds.add(m.matchId);
-      dedupedMatches.push({ ...m, isRanked: false });
-    }
+    dedupedMatches.push({ ...m, isRanked: true });
   }
 
   // Sort matches chronologically
@@ -290,7 +287,18 @@ function buildGlobalPlayerDatabase(rankedArchive, otherArchive) {
     timeZoneName: 'short',
   });
 
-  const pitStats = getGlobalPitStats(rankedArchive, otherArchive);
+  let pitClaims = 0;
+  if (typeof rankedArchive?.getPitStats === 'function') {
+    pitClaims = rankedArchive.getPitStats()?.totalDeaths || 0;
+  } else {
+    for (const m of dedupedMatches) {
+      for (const r of (m.rounds || [])) {
+        for (const k of (r.kills || [])) {
+          if (k.damageSource === -2 || k.hazard === 'PIT') pitClaims++;
+        }
+      }
+    }
+  }
 
   return {
     version: '1.0',
@@ -299,11 +307,11 @@ function buildGlobalPlayerDatabase(rankedArchive, otherArchive) {
     meta: {
       totalPlayers: playersList.length,
       totalMatches: dedupedMatches.length,
-      rankedMatches: dedupedMatches.filter((m) => m.isRanked).length,
-      casualMatches: dedupedMatches.filter((m) => !m.isRanked).length,
+      rankedMatches: dedupedMatches.length,
+      casualMatches: 0,
       totalKills: playersList.reduce((sum, p) => sum + p.kills, 0),
       totalDeaths: playersList.reduce((sum, p) => sum + p.deaths, 0),
-      pitClaims: pitStats?.totalDeaths || 0,
+      pitClaims,
     },
     players: playersList,
   };
@@ -852,7 +860,7 @@ if (file_exists($dbFile)) {
   <!-- Header -->
   <header class="site-header">
     <div class="brand-group">
-      <div class="sub">Due Process · Global Public Dossier</div>
+      <div class="sub">Due Process · Global Ranked Dossier</div>
       <div class="name">DUE<span class="accent">PROCESS</span> LEADERBOARD</div>
     </div>
     <div class="header-actions">
@@ -887,7 +895,7 @@ if (file_exists($dbFile)) {
         <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
         <div class="label">Matches Recorded</div>
         <div class="value" id="statTotalMatches">0</div>
-        <div class="sub" id="statMatchesSub">Ranked &amp; Casual</div>
+        <div class="sub" id="statMatchesSub">Ranked Matches</div>
       </div>
       <div class="panel stat-tile">
         <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
@@ -1064,7 +1072,9 @@ ${dataScript}
   const meta = db.meta || {};
   document.getElementById('statTotalPlayers').textContent = (meta.totalPlayers || db.players.length).toLocaleString();
   document.getElementById('statTotalMatches').textContent = (meta.totalMatches || 0).toLocaleString();
-  document.getElementById('statMatchesSub').textContent = \`\${meta.rankedMatches || 0} Ranked / \${meta.casualMatches || 0} Casual\`;
+  document.getElementById('statMatchesSub').textContent = (meta.casualMatches > 0)
+    ? \`\${meta.rankedMatches || 0} Ranked / \${meta.casualMatches} Casual\`
+    : 'Ranked Matches';
   document.getElementById('statTotalKills').textContent = (meta.totalKills || 0).toLocaleString();
   document.getElementById('statPitClaims').textContent = (meta.pitClaims || 0).toLocaleString();
 

@@ -526,7 +526,7 @@ if (file_exists($dbFile)) {
   <!-- Header -->
   <header class="site-header">
     <div class="brand-group">
-      <div class="sub">Due Process · Global Public Dossier</div>
+      <div class="sub">Due Process · Global Ranked Dossier</div>
       <div class="name">DUE<span class="accent">PROCESS</span> LEADERBOARD</div>
     </div>
     <div class="header-actions">
@@ -561,7 +561,7 @@ if (file_exists($dbFile)) {
         <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
         <div class="label">Matches Recorded</div>
         <div class="value" id="statTotalMatches">0</div>
-        <div class="sub" id="statMatchesSub">Ranked &amp; Casual</div>
+        <div class="sub" id="statMatchesSub">Ranked Matches</div>
       </div>
       <div class="panel stat-tile">
         <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
@@ -738,7 +738,9 @@ if (file_exists($dbFile)) {
   const meta = db.meta || {};
   document.getElementById('statTotalPlayers').textContent = (meta.totalPlayers || db.players.length).toLocaleString();
   document.getElementById('statTotalMatches').textContent = (meta.totalMatches || 0).toLocaleString();
-  document.getElementById('statMatchesSub').textContent = `${meta.rankedMatches || 0} Ranked / ${meta.casualMatches || 0} Casual`;
+  document.getElementById('statMatchesSub').textContent = (meta.casualMatches > 0)
+    ? `${meta.rankedMatches || 0} Ranked / ${meta.casualMatches} Casual`
+    : 'Ranked Matches';
   document.getElementById('statTotalKills').textContent = (meta.totalKills || 0).toLocaleString();
   document.getElementById('statPitClaims').textContent = (meta.pitClaims || 0).toLocaleString();
 

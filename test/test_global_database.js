@@ -143,35 +143,35 @@ otherArchive.data = {
 const db = buildGlobalPlayerDatabase(rankedArchive, otherArchive);
 
 assert(db, 'Database should be created');
-assert.strictEqual(db.meta.totalMatches, 3, 'Total matches should be 3');
+assert.strictEqual(db.meta.totalMatches, 2, 'Total matches should be 2 (ranked only)');
 assert.strictEqual(db.meta.rankedMatches, 2, 'Ranked matches should be 2');
-assert.strictEqual(db.meta.casualMatches, 1, 'Casual matches should be 1');
-assert.strictEqual(db.meta.totalPlayers, 4, 'Total players should be 4 (local, teammate, rival, casual pro)');
+assert.strictEqual(db.meta.casualMatches, 0, 'Casual matches should be 0');
+assert.strictEqual(db.meta.totalPlayers, 3, 'Total players should be 3 (local, teammate, rival)');
 assert(typeof db.lastUpdated === 'string' && db.lastUpdated.length > 0, 'Last updated should be formatted string');
 
-// Verify LocalPlayer is NOT skipped and has accurate global stats
+// Verify LocalPlayer is present and has ranked-only stats
 const localP = db.players.find((p) => p.accountId === 'acc_local');
 assert(localP, 'Local player must be present in global database');
 assert.strictEqual(localP.name, 'LocalPlayerRenamed', 'Should carry latest name');
 assert(localP.aliases.includes('LocalPlayer'), 'Aliases should include previous name');
 assert(localP.aliases.includes('LocalPlayerRenamed'), 'Aliases should include current name');
-assert.strictEqual(localP.matches, 3, 'Local player matches should be 3');
+assert.strictEqual(localP.matches, 2, 'Local player ranked matches should be 2');
 assert.strictEqual(localP.wins, 1, 'Local player won match 1');
 assert.strictEqual(localP.ties, 1, 'Local player tied match 2');
-assert.strictEqual(localP.losses, 1, 'Local player lost match 3');
-assert.strictEqual(localP.kills, 22, '10 + 8 + 4 = 22 kills');
-assert.strictEqual(localP.deaths, 15, '4 + 6 + 5 = 15 deaths');
-assert.strictEqual(localP.assists, 6, '2 + 3 + 1 = 6 assists');
-assert.strictEqual(localP.damage, 2700, '1200 + 1000 + 500 = 2700 damage');
-assert.strictEqual(localP.roundsCounted, 30, '10 + 12 + 8 = 30 rounds');
+assert.strictEqual(localP.losses, 0, 'Local player losses should be 0 in ranked');
+assert.strictEqual(localP.kills, 18, '10 + 8 = 18 kills in ranked');
+assert.strictEqual(localP.deaths, 10, '4 + 6 = 10 deaths in ranked');
+assert.strictEqual(localP.assists, 5, '2 + 3 = 5 assists in ranked');
+assert.strictEqual(localP.damage, 2200, '1200 + 1000 = 2200 damage in ranked');
+assert.strictEqual(localP.roundsCounted, 22, '10 + 12 = 22 rounds in ranked');
 assert(localP.dplRating > 0.5, 'DPL rating should be calculated');
-assert.strictEqual(localP.recentMatches[0].matchId, 'match-casual-1', 'Recent matches sorted newest first');
-assert.strictEqual(localP.recentMatches[0].matchup, 'Cobalt Team vs Crimson Team', 'Match name must use team names');
-assert.strictEqual(localP.recentMatches[1].matchup, 'Defenders vs Attackers', 'Match name must use team names');
-assert.strictEqual(localP.recentMatches[2].matchup, 'Alpha Squad vs Bravo Squad', 'Match name must use team names');
-assert(!localP.recentMatches[0].matchup.includes('Factory'), 'Never use map name for match names');
-assert(!localP.recentMatches[1].matchup.includes('Bank'), 'Never use map name for match names');
-assert(!localP.recentMatches[2].matchup.includes('Killhouse'), 'Never use map name for match names');
+assert.strictEqual(localP.recentMatches.length, 2, 'Recent matches should only have 2 ranked matches');
+assert.strictEqual(localP.recentMatches[0].matchId, 'match-ranked-2', 'Recent matches sorted newest first');
+assert.strictEqual(localP.recentMatches[0].matchup, 'Defenders vs Attackers', 'Match name must use team names');
+assert.strictEqual(localP.recentMatches[1].matchId, 'match-ranked-1', 'Match 1 is next');
+assert.strictEqual(localP.recentMatches[1].matchup, 'Alpha Squad vs Bravo Squad', 'Match name must use team names');
+assert(!localP.recentMatches[0].matchup.includes('Bank'), 'Never use map name for match names');
+assert(!localP.recentMatches[1].matchup.includes('Killhouse'), 'Never use map name for match names');
 
 // Verify RivalEnemy stats
 const rivalP = db.players.find((p) => p.accountId === 'acc_rival');
@@ -183,15 +183,11 @@ assert.strictEqual(rivalP.ties, 1, 'Rival tied match 2');
 assert.strictEqual(rivalP.kills, 15, '6 + 9 = 15 kills');
 assert.strictEqual(rivalP.deaths, 15, '8 + 7 = 15 deaths');
 
-// Verify CasualPro stats
+// Verify CasualPro (only in casual match) is NOT present in the ranked database export
 const casualP = db.players.find((p) => p.accountId === 'acc_casual_pro');
-assert(casualP, 'Casual pro must be present');
-assert.strictEqual(casualP.matches, 1);
-assert.strictEqual(casualP.wins, 1, 'Casual pro won match 3');
-assert.strictEqual(casualP.losses, 0);
-assert.strictEqual(casualP.winRate, 100);
+assert.strictEqual(casualP, undefined, 'Casual-only player must NOT be in ranked web database');
 
-console.log('✓ buildGlobalPlayerDatabase accurately aggregates all players and stats');
+console.log('✓ buildGlobalPlayerDatabase accurately aggregates all players and stats (ranked matches only)');
 
 console.log('=== Test 2: generatePortalMarkup HTML & PHP generation ===');
 

@@ -1215,13 +1215,13 @@ ipcMain.handle('hub:get-pit-stats', () => {
   return getGlobalPitStats(rankedArchive, otherArchive, currentPlayerName());
 });
 
-// Global Player Database & Web Portal export
+// Global Player Database & Web Portal export (Ranked only)
 ipcMain.handle('hub:get-global-database', () => {
-  return buildGlobalPlayerDatabase(rankedArchive, otherArchive);
+  return buildGlobalPlayerDatabase(rankedArchive);
 });
 
 ipcMain.handle('hub:export-web-database', () => {
-  const dbData = buildGlobalPlayerDatabase(rankedArchive, otherArchive);
+  const dbData = buildGlobalPlayerDatabase(rankedArchive);
   return {
     dbData,
     json: JSON.stringify(dbData, null, 2),
@@ -1233,7 +1233,7 @@ ipcMain.handle('hub:export-web-database', () => {
 });
 
 ipcMain.handle('hub:save-web-database-file', async (_event, type) => {
-  const dbData = buildGlobalPlayerDatabase(rankedArchive, otherArchive);
+  const dbData = buildGlobalPlayerDatabase(rankedArchive);
   let defaultPath = 'database.json';
   let filters = [{ name: 'JSON Database (*.json)', extensions: ['json'] }];
   let content = JSON.stringify(dbData, null, 2);

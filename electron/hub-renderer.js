@@ -1791,7 +1791,7 @@ async function refreshWebDbStats() {
     const matchesCount = db.meta?.totalMatches || 0;
 
     if (modalDbSummary) {
-      modalDbSummary.textContent = `${playersCount.toLocaleString()} players · ${matchesCount.toLocaleString()} matches`;
+      modalDbSummary.textContent = `${playersCount.toLocaleString()} players · ${matchesCount.toLocaleString()} ranked matches`;
     }
     if (modalDbLastUpdated) {
       modalDbLastUpdated.textContent = `Last updated: ${db.lastUpdated || 'Just now'}`;
