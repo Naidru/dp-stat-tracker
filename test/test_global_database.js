@@ -15,6 +15,8 @@ rankedArchive.data = {
       timestamp: 1759000000000,
       isRanked: true,
       mapLabel: '[Killhouse_Day] Pit Arena',
+      team0Name: 'Alpha Squad',
+      team1Name: 'Bravo Squad',
       roundCount: 10,
       finalScore: { side0: 7, side1: 3 },
       teams: [
@@ -65,6 +67,8 @@ rankedArchive.data = {
       timestamp: 1759050000000,
       isRanked: true,
       mapLabel: '[Bank] Executive Lounge',
+      team0Name: 'Defenders',
+      team1Name: 'Attackers',
       roundCount: 12,
       finalScore: { side0: 6, side1: 6 }, // Tie
       teams: [
@@ -104,6 +108,8 @@ otherArchive.data = {
       timestamp: 1759100000000,
       isRanked: false,
       mapLabel: '[Factory] Smelter',
+      team0Name: 'Cobalt Team',
+      team1Name: 'Crimson Team',
       roundCount: 8,
       finalScore: { side0: 3, side1: 5 }, // Side 1 won
       teams: [
@@ -159,8 +165,13 @@ assert.strictEqual(localP.assists, 6, '2 + 3 + 1 = 6 assists');
 assert.strictEqual(localP.damage, 2700, '1200 + 1000 + 500 = 2700 damage');
 assert.strictEqual(localP.roundsCounted, 30, '10 + 12 + 8 = 30 rounds');
 assert(localP.dplRating > 0.5, 'DPL rating should be calculated');
-assert.strictEqual(localP.recentMatches.length, 3, 'Should list 3 recent matches');
 assert.strictEqual(localP.recentMatches[0].matchId, 'match-casual-1', 'Recent matches sorted newest first');
+assert.strictEqual(localP.recentMatches[0].matchup, 'Cobalt Team vs Crimson Team', 'Match name must use team names');
+assert.strictEqual(localP.recentMatches[1].matchup, 'Defenders vs Attackers', 'Match name must use team names');
+assert.strictEqual(localP.recentMatches[2].matchup, 'Alpha Squad vs Bravo Squad', 'Match name must use team names');
+assert(!localP.recentMatches[0].matchup.includes('Factory'), 'Never use map name for match names');
+assert(!localP.recentMatches[1].matchup.includes('Bank'), 'Never use map name for match names');
+assert(!localP.recentMatches[2].matchup.includes('Killhouse'), 'Never use map name for match names');
 
 // Verify RivalEnemy stats
 const rivalP = db.players.find((p) => p.accountId === 'acc_rival');
@@ -190,12 +201,16 @@ assert(htmlMarkup.includes('window.GLOBAL_DATABASE = {'), 'HTML output should in
 assert(htmlMarkup.includes('DUE<span class="accent">PROCESS</span> LEADERBOARD'), 'HTML output should contain branding');
 assert(htmlMarkup.includes('statTotalPlayers'), 'HTML output should contain stat overview IDs');
 assert(htmlMarkup.includes('playerModalBackdrop'), 'HTML output should contain player modal');
+assert(htmlMarkup.includes('<th>Matchup</th>'), 'HTML output should contain Matchup header');
+assert(!htmlMarkup.includes('<th>Map</th>'), 'HTML output must NOT contain Map header');
 
 const phpMarkup = generatePortalMarkup(null, true);
 assert(phpMarkup.includes('<?php'), 'PHP output should start with PHP tag');
 assert(phpMarkup.includes("$dbFile = __DIR__ . '/database.json';"), 'PHP output should load database.json');
 assert(phpMarkup.includes('window.GLOBAL_DATABASE = <?= $dbData'), 'PHP output should echo dbData');
 assert(phpMarkup.includes('<!doctype html>'), 'PHP output should contain HTML document');
+assert(phpMarkup.includes('<th>Matchup</th>'), 'PHP output should contain Matchup header');
+assert(!phpMarkup.includes('<th>Map</th>'), 'PHP output must NOT contain Map header');
 
 console.log('✓ generatePortalMarkup accurately generates both Standalone HTML and PHP portals');
 
@@ -206,6 +221,8 @@ const webIndexContent = fs.readFileSync(webIndexPath, 'utf8');
 assert(webIndexContent.startsWith('<?php'), 'web/index.php must start with <?php');
 assert(webIndexContent.includes("$dbFile = __DIR__ . '/database.json';"), 'web/index.php must reference database.json');
 assert(webIndexContent.includes('Last Updated:'), 'web/index.php must display Last Updated');
+assert(webIndexContent.includes('<th>Matchup</th>'), 'web/index.php must use Matchup header for team names');
+assert(!webIndexContent.includes('<th>Map</th>'), 'web/index.php must NOT use Map header for match names');
 
 console.log('✓ web/index.php file verified successfully');
 

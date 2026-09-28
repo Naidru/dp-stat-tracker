@@ -191,11 +191,18 @@ function buildGlobalPlayerDatabase(rankedArchive, otherArchive) {
           winRate: tied ? 50 : (won ? 100 : 0),
         });
 
+        const team0 = match.team0Name || 'Blue Team';
+        const team1 = match.team1Name || 'Orange Team';
+        const matchup = match.matchup || `${team0} vs ${team1}`;
+
         p.recentMatches.push({
           matchId: match.matchId,
+          matchup,
+          matchName: matchup,
+          team0Name: team0,
+          team1Name: team1,
           timestamp: match.timestamp || 0,
           dateFormatted: match.timestamp ? new Date(match.timestamp).toLocaleDateString() : '—',
-          mapLabel: match.mapLabel || 'Unknown Map',
           isRanked: Boolean(match.isRanked),
           result: tied ? 'TIE' : (won ? 'WIN' : 'LOSS'),
           score: (myScore !== null && oppScore !== null) ? `${myScore} - ${oppScore}` : '—',
@@ -1025,7 +1032,7 @@ if (file_exists($dbFile)) {
           <table class="data-table" style="font-size:12px">
             <thead>
               <tr>
-                <th>Map</th>
+                <th>Matchup</th>
                 <th class="text-center">Outcome</th>
                 <th class="text-center">Score</th>
                 <th class="text-right">K/D/A</th>
@@ -1297,7 +1304,7 @@ ${dataScript}
         const tr = document.createElement('tr');
         const outClass = m.result === 'WIN' ? 'outcome-win' : (m.result === 'LOSS' ? 'outcome-loss' : 'outcome-tie');
         tr.innerHTML = \`
-          <td>\${escapeHtml(m.mapLabel || 'Unknown')}</td>
+          <td>\${escapeHtml(m.matchup || m.matchName || 'Unknown Match')}</td>
           <td class="text-center"><span class="outcome-pill \${outClass}">\${m.result}</span></td>
           <td class="text-center" style="font-weight:600">\${escapeHtml(m.score || '—')}</td>
           <td class="text-right" style="color:var(--text-dim)">\${m.kills}/\${m.deaths}/\${m.assists}</td>

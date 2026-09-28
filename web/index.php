@@ -706,7 +706,7 @@ if (file_exists($dbFile)) {
           <table class="data-table" style="font-size:12px">
             <thead>
               <tr>
-                <th>Map</th>
+                <th>Matchup</th>
                 <th class="text-center">Outcome</th>
                 <th class="text-center">Score</th>
                 <th class="text-right">K/D/A</th>
@@ -978,7 +978,7 @@ if (file_exists($dbFile)) {
         const tr = document.createElement('tr');
         const outClass = m.result === 'WIN' ? 'outcome-win' : (m.result === 'LOSS' ? 'outcome-loss' : 'outcome-tie');
         tr.innerHTML = `
-          <td>${escapeHtml(m.mapLabel || 'Unknown')}</td>
+          <td>${escapeHtml(m.matchup || m.matchName || 'Unknown Match')}</td>
           <td class="text-center"><span class="outcome-pill ${outClass}">${m.result}</span></td>
           <td class="text-center" style="font-weight:600">${escapeHtml(m.score || '—')}</td>
           <td class="text-right" style="color:var(--text-dim)">${m.kills}/${m.deaths}/${m.assists}</td>
