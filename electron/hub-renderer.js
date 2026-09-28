@@ -666,7 +666,7 @@ function renderPitTracker(pitStats) {
   const topVictim = pitStats.topVictim;
 
   if (pitHeaderCountEl) {
-    pitHeaderCountEl.textContent = total.toLocaleString();
+    pitHeaderCountEl.textContent = self.toLocaleString();
   }
   if (pitHomeCountEl) {
     pitHomeCountEl.textContent = total.toLocaleString();
@@ -722,7 +722,7 @@ function renderPitTables(pitStats) {
 
   const claims = pitStats?.claims || [];
   if (claims.length === 0) {
-    pitClaimsTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);font-style:italic">No Pit claims recorded.</td></tr>';
+    pitClaimsTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);font-style:italic">No Pit claims recorded.</td></tr>';
   } else {
     claims.forEach((c) => {
       const tr = document.createElement('tr');
@@ -734,7 +734,6 @@ function renderPitTables(pitStats) {
         <td style="color:var(--text)">${escapeHtml(c.mapLabel || 'Unknown')}</td>
         <td style="text-align:center;color:var(--text-dim)">Round ${c.roundNumber || 1}</td>
         <td style="text-align:center"><span class="cat-pill" style="font-size:9px;padding:1px 5px">${escapeHtml(c.mode || 'Ranked')}</span></td>
-        <td style="text-align:right;font-family:monospace;color:var(--text-muted)">${escapeHtml(c.timeFormatted || '0:00')}</td>
         <td style="text-align:right;color:var(--text-dim);font-size:11px">${dateStr}</td>
       `;
       tr.title = 'Click to open match details';
