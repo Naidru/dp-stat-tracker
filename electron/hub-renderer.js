@@ -1518,8 +1518,10 @@ const pfpDefBar = document.getElementById('pfpDefBar');
 
 const pfpOpeningDuelRate = document.getElementById('pfpOpeningDuelRate');
 const pfpOpeningDuelSub = document.getElementById('pfpOpeningDuelSub');
-const pfpHeadshotRate = document.getElementById('pfpHeadshotRate');
-const pfpHeadshotSub = document.getElementById('pfpHeadshotSub');
+const pfpTotalDamage = document.getElementById('pfpTotalDamage') || document.getElementById('pfpHeadshotRate');
+const pfpDamageSub = document.getElementById('pfpDamageSub') || document.getElementById('pfpHeadshotSub');
+const pfpHeadshotRate = pfpTotalDamage;
+const pfpHeadshotSub = pfpDamageSub;
 const pfpTeamDamage = document.getElementById('pfpTeamDamage');
 
 const pfpWeaponsBody = document.getElementById('pfpWeaponsBody');
@@ -1567,8 +1569,8 @@ async function openFullPlayerProfile(accountId) {
 
     pfpOpeningDuelRate.textContent = '0%';
     pfpOpeningDuelSub.textContent = '0 won / 0 duels';
-    pfpHeadshotRate.textContent = '0%';
-    pfpHeadshotSub.textContent = '0 HS / 0 hits';
+    pfpTotalDamage.textContent = '0';
+    pfpDamageSub.textContent = '0 ADR';
     pfpTeamDamage.textContent = '0';
 
     pfpWeaponsBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px">No weapon data recorded for this player</td></tr>';
@@ -1617,8 +1619,8 @@ async function openFullPlayerProfile(accountId) {
     // Opening Duels & Headshots & FF
     pfpOpeningDuelRate.textContent = `${profile.openingDuels.winRate}%`;
     pfpOpeningDuelSub.textContent = `${profile.openingDuels.won} won / ${profile.openingDuels.involved} duels`;
-    pfpHeadshotRate.textContent = `${profile.headshots.hsPercent}%`;
-    pfpHeadshotSub.textContent = `${profile.headshots.headshots} HS / ${profile.headshots.hits} hits`;
+    pfpTotalDamage.textContent = (profile.damage ?? 0).toLocaleString();
+    pfpDamageSub.textContent = `${profile.adr ?? 0} ADR`;
     pfpTeamDamage.textContent = profile.teamDamage.toLocaleString();
 
     // Weapons
