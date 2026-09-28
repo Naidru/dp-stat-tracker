@@ -653,6 +653,7 @@ function render(data) {
   renderWeaponsTable();
   renderPlayedWithTable();
   renderPitTracker(data.pitStats);
+  refreshWebDbStats();
 }
 
 // ---------------------------------------------------------------------
@@ -1763,6 +1764,154 @@ document.getElementById('exportOtherHistoryCsvBtn')?.addEventListener('click', (
 });
 
 // ---------------------------------------------------------------------
+// Web Database Export (database.json, standalone .html, index.php)
+// ---------------------------------------------------------------------
+
+const exportWebDbBtn = document.getElementById('exportWebDbBtn');
+const exportDbModalBackdrop = document.getElementById('exportDbModalBackdrop');
+const exportDbModalClose = document.getElementById('exportDbModalClose');
+const modalExportJsonBtn = document.getElementById('modalExportJsonBtn');
+const modalExportHtmlBtn = document.getElementById('modalExportHtmlBtn');
+const modalExportPhpBtn = document.getElementById('modalExportPhpBtn');
+const modalDbSummary = document.getElementById('modalDbSummary');
+const modalDbLastUpdated = document.getElementById('modalDbLastUpdated');
+
+const settingsExportJsonBtn = document.getElementById('settingsExportJsonBtn');
+const settingsExportHtmlBtn = document.getElementById('settingsExportHtmlBtn');
+const settingsExportPhpBtn = document.getElementById('settingsExportPhpBtn');
+const settingsOpenWebFolderBtn = document.getElementById('settingsOpenWebFolderBtn');
+const settingsDbPlayerCount = document.getElementById('settingsDbPlayerCount');
+const settingsDbMatchCount = document.getElementById('settingsDbMatchCount');
+
+async function refreshWebDbStats() {
+  try {
+    const db = await window.hubAPI?.getGlobalDatabase?.();
+    if (!db) return;
+    const playersCount = db.players?.length || 0;
+    const matchesCount = db.meta?.totalMatches || 0;
+
+    if (modalDbSummary) {
+      modalDbSummary.textContent = `${playersCount.toLocaleString()} players · ${matchesCount.toLocaleString()} matches`;
+    }
+    if (modalDbLastUpdated) {
+      modalDbLastUpdated.textContent = `Last updated: ${db.lastUpdated || 'Just now'}`;
+    }
+    if (settingsDbPlayerCount) {
+      settingsDbPlayerCount.textContent = playersCount.toLocaleString();
+    }
+    if (settingsDbMatchCount) {
+      settingsDbMatchCount.textContent = matchesCount.toLocaleString();
+    }
+  } catch (err) {
+    console.error('Failed to fetch global database stats:', err);
+  }
+}
+
+function openExportDbModal() {
+  if (!exportDbModalBackdrop) return;
+  refreshWebDbStats();
+  exportDbModalBackdrop.hidden = false;
+}
+
+function closeExportDbModal() {
+  if (!exportDbModalBackdrop) return;
+  exportDbModalBackdrop.hidden = true;
+}
+
+async function triggerWebDbExport(type, triggerBtn) {
+  const origText = triggerBtn?.textContent;
+  if (triggerBtn) {
+    triggerBtn.textContent = 'Exporting...';
+    triggerBtn.disabled = true;
+  }
+
+  try {
+    // Attempt Electron native save dialog
+    if (window.hubAPI?.saveWebDatabaseFile) {
+      const res = await window.hubAPI.saveWebDatabaseFile(type);
+      if (res && res.success) {
+        if (triggerBtn) triggerBtn.textContent = 'Saved ✓';
+        setTimeout(() => {
+          if (triggerBtn) {
+            triggerBtn.textContent = origText;
+            triggerBtn.disabled = false;
+          }
+        }, 2000);
+        return;
+      } else if (res && res.canceled) {
+        if (triggerBtn) {
+          triggerBtn.textContent = origText;
+          triggerBtn.disabled = false;
+        }
+        return;
+      }
+    }
+
+    // Fallback: browser blob download
+    const exportData = await window.hubAPI?.exportWebDatabase?.();
+    if (!exportData) throw new Error('No export data received');
+
+    let filename = 'database.json';
+    let mime = 'application/json;charset=utf-8;';
+    let content = exportData.json;
+
+    if (type === 'html') {
+      filename = 'players_database.html';
+      mime = 'text/html;charset=utf-8;';
+      content = exportData.html;
+    } else if (type === 'php') {
+      filename = 'index.php';
+      mime = 'text/plain;charset=utf-8;';
+      content = exportData.php;
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if (triggerBtn) {
+      triggerBtn.textContent = 'Downloaded ✓';
+      setTimeout(() => {
+        triggerBtn.textContent = origText;
+        triggerBtn.disabled = false;
+      }, 2000);
+    }
+  } catch (err) {
+    console.error('Export failed:', err);
+    if (triggerBtn) {
+      triggerBtn.textContent = 'Failed ⚠';
+      setTimeout(() => {
+        triggerBtn.textContent = origText;
+        triggerBtn.disabled = false;
+      }, 2000);
+    }
+  }
+}
+
+if (exportWebDbBtn) exportWebDbBtn.addEventListener('click', openExportDbModal);
+if (exportDbModalClose) exportDbModalClose.addEventListener('click', closeExportDbModal);
+if (exportDbModalBackdrop) {
+  exportDbModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === exportDbModalBackdrop) closeExportDbModal();
+  });
+}
+
+if (modalExportJsonBtn) modalExportJsonBtn.addEventListener('click', (e) => triggerWebDbExport('json', e.currentTarget));
+if (modalExportHtmlBtn) modalExportHtmlBtn.addEventListener('click', (e) => triggerWebDbExport('html', e.currentTarget));
+if (modalExportPhpBtn) modalExportPhpBtn.addEventListener('click', (e) => triggerWebDbExport('php', e.currentTarget));
+
+if (settingsExportJsonBtn) settingsExportJsonBtn.addEventListener('click', (e) => triggerWebDbExport('json', e.currentTarget));
+if (settingsExportHtmlBtn) settingsExportHtmlBtn.addEventListener('click', (e) => triggerWebDbExport('html', e.currentTarget));
+if (settingsExportPhpBtn) settingsExportPhpBtn.addEventListener('click', (e) => triggerWebDbExport('php', e.currentTarget));
+if (settingsOpenWebFolderBtn) settingsOpenWebFolderBtn.addEventListener('click', () => window.hubAPI?.openWebFolder?.());
+
+// ---------------------------------------------------------------------
 // Weapons — ranked-only lifetime per-weapon stats (see match-archive.js's
 // getWeaponStats()). Headshots/HS% are null for a weapon stats.js has no
 // base-damage reference for (explosives, unidentified codes) — rendered as
@@ -2827,6 +2976,10 @@ matchDetailBackdrop.addEventListener('click', async (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (exportDbModalBackdrop && !exportDbModalBackdrop.hidden) {
+      closeExportDbModal();
+      return;
+    }
     if (pitDetailBackdrop && !pitDetailBackdrop.hidden) {
       closePitDetail();
       return;

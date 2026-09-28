@@ -1571,4 +1571,5 @@ module.exports = {
   mergeArchivedMatches,
   cleanupSplitMatches,
   getGlobalPitStats,
+  computeDplRating,
 };

@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld('hubAPI', {
   // per-account data — see main.js's handleGetPlayerCount.
   getPlayerCount: () => ipcRenderer.invoke('hub:get-player-count'),
   getPitStats: () => ipcRenderer.invoke('hub:get-pit-stats'),
+  getGlobalDatabase: () => ipcRenderer.invoke('hub:get-global-database'),
+  exportWebDatabase: () => ipcRenderer.invoke('hub:export-web-database'),
+  saveWebDatabaseFile: (type) => ipcRenderer.invoke('hub:save-web-database-file', type),
+  openWebFolder: () => ipcRenderer.invoke('hub:open-web-folder'),
   // `which` is optional — 'ranked' (default), or 'other' for the otherArchive.
   exportCsv: (which) => ipcRenderer.invoke('hub:export-csv', which),
   saveMapNote: (mapName, note) => ipcRenderer.invoke('hub:save-map-note', mapName, note),
