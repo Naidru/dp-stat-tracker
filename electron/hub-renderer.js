@@ -682,7 +682,7 @@ function renderLiveMatch() {
   renderScoreboardTeams(liveMatchTeamsEl, {
     finalScore: liveMatch.finalScore,
     teams: liveMatch.teams,
-    localAccountId: latestHubData?.playerName,
+    localAccountId: latestHubData?.localAccountId,
   });
 
   attachPlayerClickHandlers(liveMatchTeamsEl);
@@ -1839,6 +1839,7 @@ function getBadgeClassForTag(tag) {
   if (lower === 'scrim') return 'scrim';
   if (lower === 'tournament') return 'tournament';
   if (lower === 'casual') return 'casual';
+  if (lower === 'spectated') return 'spectated';
   return 'custom';
 }
 
@@ -1851,21 +1852,22 @@ function renderMatchRows(tbody, matches, opts = {}) {
     const tr = document.createElement('tr');
     tr.dataset.matchId = m.matchId;
     tr.title = 'Click for the full scoreboard';
-    const resultClass = m.tied ? 'result-tie' : m.won ? 'result-win' : 'result-loss';
-    const resultText = m.tied ? 'TIE' : m.won ? 'WIN' : 'LOSS';
+    const resultClass = m.isSpectator ? 'result-spectate' : (m.tied ? 'result-tie' : m.won ? 'result-win' : 'result-loss');
+    const resultText = m.isSpectator ? 'SPEC' : (m.tied ? 'TIE' : m.won ? 'WIN' : 'LOSS');
     const matchTags = Array.isArray(m.tags) && m.tags.length > 0
       ? m.tags
-      : (m.source === 'ranked' ? ['Ranked'] : (m.is2v2 ? ['2v2'] : ['Casual']));
+      : (m.isSpectator ? ['Spectated'] : (m.source === 'ranked' ? ['Ranked'] : (m.is2v2 ? ['2v2'] : ['Casual'])));
     const sourceBadge = (opts.tagSource || matchTags.length > 0)
       ? matchTags.map((tag) => `<span class="source-badge source-badge--${getBadgeClassForTag(tag)}">${escapeHtml(String(tag).toUpperCase())}</span>`).join('')
       : '';
-    const myScoreClass = m.tied ? '' : m.won ? '' : 'result-loss';
-    const oppScoreClass = m.tied ? '' : m.won ? 'result-win' : '';
+    const myScoreClass = m.isSpectator ? '' : (m.tied ? '' : m.won ? '' : 'result-loss');
+    const oppScoreClass = m.isSpectator ? '' : (m.tied ? '' : m.won ? 'result-win' : '');
+    const kdaDisplay = m.isSpectator ? '—' : `${m.kills} - ${m.deaths} - ${m.assists}`;
     tr.innerHTML = `
       <td class="${resultClass}" style="letter-spacing:.1em">${resultText}</td>
       <td>${escapeHtml(m.matchup || `${m.team0Name || 'Blue Team'} vs ${m.team1Name || 'Orange Team'}`)}${sourceBadge}</td>
       <td style="text-align:center"><span class="${myScoreClass}">${m.myScore}</span> – <span class="${oppScoreClass}">${m.oppScore}</span></td>
-      <td style="text-align:center;white-space:nowrap;font-family:var(--font-display);font-weight:600;min-width:90px">${m.kills} - ${m.deaths} - ${m.assists}</td>
+      <td style="text-align:center;white-space:nowrap;font-family:var(--font-display);font-weight:600;min-width:90px">${kdaDisplay}</td>
       <td style="text-align:right;font-family:var(--font-body);font-size:11px;color:var(--text-muted);white-space:nowrap">${timeAgo(m.timestamp)}</td>
       <td style="text-align:center"><button class="delete-match-btn" title="Delete this match" aria-label="Delete this match">&times;</button></td>
     `;
@@ -2063,6 +2065,10 @@ async function openMatchDetail(matchId) {
         myKills = typeof r.myKills === 'number' ? r.myKills : null;
       }
 
+      if (match.isSpectator && r && typeof r === 'object' && r.winnerSide !== undefined && r.winnerSide !== null) {
+        isWon = r.winnerSide === 0;
+      }
+
       const tilesetClean = tileset ? tileset.replace(/_Day$/i, '') : null;
       const card = document.createElement('div');
       const resultClass = isWon ? 'match-map-card--win' : 'match-map-card--loss';
@@ -2074,7 +2080,8 @@ async function openMatchDetail(matchId) {
       // normal shape rather than a guess.
       const isSave = roundResult === 'save';
       card.className = `match-map-card ${resultClass}${isSave ? ' match-map-card--save' : ''}`;
-      const resultSuffix = isWon ? 'WIN' : 'LOSS';
+      const winnerName = (r && typeof r === 'object' && r.winnerSide === 1) ? (match.team1Name || 'Orange Team') : (match.team0Name || 'Blue Team');
+      const resultSuffix = match.isSpectator ? `${winnerName} WON` : (isWon ? 'WIN' : 'LOSS');
       const saveSuffix = isSave ? ' — SAVE' : '';
       card.title = tilesetClean
         ? `Round ${roundNum}: [${tilesetClean}] ${mapName ?? ''} (${resultSuffix}${saveSuffix})`
@@ -2132,8 +2139,9 @@ async function openMatchDetail(matchId) {
 function updateMatchDetailMeta(match) {
   const modeClass = match.isRanked ? 'ranked' : match.is2v2 ? '2v2' : 'other';
   const modeText = match.modeOverride ? match.modeOverride.toUpperCase() : (match.isRanked ? 'RANKED' : match.is2v2 ? '2v2' : 'OTHER');
+  const spectatorBadge = match.isSpectator ? '<span class="source-badge source-badge--spectated" style="margin-left:0;margin-right:6px">SPECTATED</span>' : '';
   const inferredNote = match.inferred ? ' · INFERRED (no matchEnded seen)' : '';
-  matchDetailMeta.innerHTML = `<span class="source-badge source-badge--${modeClass}" style="margin-left:0;margin-right:6px">${modeText}</span>${match.roundCount} rounds${inferredNote}`;
+  matchDetailMeta.innerHTML = `${spectatorBadge}<span class="source-badge source-badge--${modeClass}" style="margin-left:0;margin-right:6px">${modeText}</span>${match.roundCount} rounds${inferredNote}`;
 }
 
 function renderMatchDetailTags(match) {
@@ -2162,7 +2170,7 @@ function renderMatchDetailTags(match) {
     container.appendChild(pill);
   }
 
-  const PRESET_QUICK_TAGS = ['Scrim', 'Tournament', 'Warmup', 'Casual', 'Custom'];
+  const PRESET_QUICK_TAGS = ['Spectated', 'Scrim', 'Tournament', 'Warmup', 'Casual', 'Custom'];
   for (const preset of PRESET_QUICK_TAGS) {
     if (tags.some((t) => t.toLowerCase() === preset.toLowerCase())) continue;
     const pill = document.createElement('span');
@@ -2318,7 +2326,10 @@ function selectMatchDetailRound(roundIndex, match) {
   }
   const roundNum = r.round || (roundIndex + 1);
   const roleText = r.sideRole ? ` · ${r.sideRole}` : '';
-  const resultText = typeof r.won === 'boolean' ? (r.won ? ' · WIN' : ' · LOSS') : '';
+  const winnerName = (r && typeof r === 'object' && r.winnerSide === 1) ? (match?.team1Name || 'Orange Team') : (match?.team0Name || 'Blue Team');
+  const resultText = match?.isSpectator
+    ? (r.winnerSide !== undefined && r.winnerSide !== null ? ` · ${winnerName} WON` : '')
+    : (typeof r.won === 'boolean' ? (r.won ? ' · WIN' : ' · LOSS') : '');
   const conditionText = r.roundResult ? ` (${r.roundResult.toUpperCase()})` : '';
 
   if (matchDetailRoundTitle) {
@@ -2355,10 +2366,7 @@ function selectMatchDetailRound(roundIndex, match) {
       const row = document.createElement('div');
       row.className = 'round-kill-row';
 
-      const timeEl = document.createElement('span');
-      timeEl.className = 'round-kill-time';
-      timeEl.textContent = k.timeFormatted || `${Math.floor((k.seconds || 0) / 60)}:${String((k.seconds || 0) % 60).padStart(2, '0')}`;
-      row.appendChild(timeEl);
+      // Time stamps removed from kill feed per user request
 
       const killerEl = document.createElement('span');
       killerEl.className = `round-kill-actor ${k.killerSide === 0 ? 'round-kill-actor--side0' : k.killerSide === 1 ? 'round-kill-actor--side1' : ''}`;
@@ -2407,7 +2415,7 @@ async function exportRoundOutcomesText(match) {
   const score1 = match.finalScore?.side1 ?? match.oppScore ?? 0;
   const dateStr = match.timestamp ? new Date(match.timestamp).toLocaleString() : 'Unknown Date';
   const modeStr = match.modeOverride || (match.isRanked ? 'Ranked' : match.is2v2 ? '2v2' : 'Casual');
-  const outcomeSummary = match.tied ? 'TIE' : (match.won ? 'WIN' : 'LOSS');
+  const outcomeSummary = match.isSpectator ? 'SPECTATED' : (match.tied ? 'TIE' : (match.won ? 'WIN' : 'LOSS'));
 
   const lines = [
     '========================================================================',
@@ -2432,8 +2440,11 @@ async function exportRoundOutcomesText(match) {
     const tileset = r.tileset && r.tileset !== 'Unknown' ? r.tileset.replace(/_Day$/i, '') : '';
     const mapName = r.mapName && r.mapName !== 'Unknown' ? r.mapName : (r.mapLabel || 'Unknown Map');
     const mapStr = tileset ? `[${tileset}] ${mapName}` : mapName;
-    const role = r.sideRole || 'UNKNOWN';
-    const result = typeof r.won === 'boolean' ? (r.won ? 'WIN' : 'LOSS') : (r.winnerSide === 0 ? 'TEAM 0' : 'TEAM 1');
+    const role = r.sideRole || (match.isSpectator ? 'N/A' : 'UNKNOWN');
+    const winnerName = r.winnerSide === 1 ? team1 : team0;
+    const result = match.isSpectator
+      ? `${winnerName} WON`
+      : (typeof r.won === 'boolean' ? (r.won ? 'WIN' : 'LOSS') : (r.winnerSide === 0 ? 'TEAM 0' : 'TEAM 1'));
     const condition = r.roundResult ? ` (${r.roundResult.toUpperCase()})` : '';
 
     if (r.winnerSide === 0) running0++;

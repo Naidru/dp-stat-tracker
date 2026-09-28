@@ -30,7 +30,7 @@ if (appIconPath) {
 }
 
 const config = require('./config');
-const { MatchArchive } = require('./match-archive');
+const { MatchArchive, cleanupSplitMatches } = require('./match-archive');
 const { findLocalAccountId } = require('./local-player');
 const { MapTracker } = require('./map-tracker');
 const { MapLayoutLibrary } = require('./map-layout-library');
@@ -1348,6 +1348,9 @@ async function main() {
   rankedArchive = new MatchArchive(path.join(userDataDir, 'match-archive.json'));
   otherArchive = new MatchArchive(path.join(userDataDir, 'other-matches-archive.json'));
 
+  // Merge any matches split across crashes
+  cleanupSplitMatches(rankedArchive, otherArchive);
+
   // Ensure any matches with an explicit non-Ranked mode override currently stored in rankedArchive are migrated to otherArchive.
   const misclassified = rankedArchive.data.matches.filter((m) => m.modeOverride && m.modeOverride.toLowerCase() !== 'ranked');
   for (const m of misclassified) {
@@ -1441,6 +1444,7 @@ async function main() {
         `${currentScan.recorded} from Player.log.`
     );
   }
+  cleanupSplitMatches(rankedArchive, otherArchive);
   localAccountId = rankedArchive.getLocalAccountId() || otherArchive.getLocalAccountId(); // the scans above may have just discovered it
   sendHubUpdate();
 
