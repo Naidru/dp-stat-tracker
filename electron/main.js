@@ -30,7 +30,7 @@ if (appIconPath) {
 }
 
 const config = require('./config');
-const { MatchArchive, cleanupSplitMatches } = require('./match-archive');
+const { MatchArchive, cleanupSplitMatches, getGlobalPitStats } = require('./match-archive');
 const { findLocalAccountId } = require('./local-player');
 const { MapTracker } = require('./map-tracker');
 const { MapLayoutLibrary } = require('./map-layout-library');
@@ -717,6 +717,7 @@ function sendHubUpdate() {
     playedWithStats: playedWithStats,
     mapStats: rankedArchive.getMapStats(),
     liveMatch: getLiveMatchState(playedWithStats, lifetimeStats),
+    pitStats: getGlobalPitStats(rankedArchive, otherArchive, currentPlayerName()),
     overlayHotkey: settingsStore ? settingsStore.get('overlayHotkey') : config.OVERLAY_HOTKEY,
   });
 }
@@ -1208,6 +1209,9 @@ ipcMain.handle('hub:get-ranked-history', () => {
 });
 ipcMain.handle('hub:get-other-history', () => {
   return otherArchive.getRecentMatches(Number.MAX_SAFE_INTEGER);
+});
+ipcMain.handle('hub:get-pit-stats', () => {
+  return getGlobalPitStats(rankedArchive, otherArchive, currentPlayerName());
 });
 
 // Delete a match from whichever archive it lives in, then push fresh
