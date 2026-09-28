@@ -81,7 +81,6 @@ contextBridge.exposeInMainWorld('hubAPI', {
   // Live player count for the game itself (Steam's public API), not
   // per-account data — see main.js's handleGetPlayerCount.
   getPlayerCount: () => ipcRenderer.invoke('hub:get-player-count'),
-  getPitStats: () => ipcRenderer.invoke('hub:get-pit-stats'),
   // `which` is optional — 'ranked' (default), or 'other' for the otherArchive.
   exportCsv: (which) => ipcRenderer.invoke('hub:export-csv', which),
   saveMapNote: (mapName, note) => ipcRenderer.invoke('hub:save-map-note', mapName, note),

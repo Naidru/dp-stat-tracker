@@ -352,19 +352,14 @@ export class DueProcessLogParser {
         // entry to a round by its own tick falling inside that round's
         // Stats::Kill/Damage tick range (see rescan.js) — the one thing
         // that's actually correct regardless of how mis-timed the write is.
-        const upperKiller = killerName.toUpperCase();
-        const upperVerb = verb.toUpperCase();
-        const isPit = upperKiller === 'PIT' || upperVerb === 'ROASTED';
-        const isUav = upperKiller === 'UAV' || upperVerb === 'ZAPPED';
         this.current.killFeed.push({
           killerName,
           verb,
           victimName,
           tick: numTick,
-          // e.g. "UAV ZAPPED <player>" or "PIT ROASTED <player>" — a non-player kill,
-          // not attributable to any player's personal stat line.
-          isEnvironmentKill: isUav || isPit,
-          isPitDeath: isPit,
+          // e.g. "UAV ZAPPED <player>" — a non-player kill, not attributable
+          // to any player's stat line.
+          isEnvironmentKill: killerName.toUpperCase() === 'UAV',
         });
       }
       return;

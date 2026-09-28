@@ -694,8 +694,8 @@
     text-decoration: underline;
   }
 
-  /* Player Detail Modal, Player Full Profile, Map History & Pit Detail Modal */
-  #playerDetailBackdrop, #playerFullProfileBackdrop, #mapHistoryBackdrop, #mapScreenshotPreviewBackdrop, #pitDetailBackdrop {
+  /* Player Detail Modal, Player Full Profile & Map History Modal */
+  #playerDetailBackdrop, #playerFullProfileBackdrop, #mapHistoryBackdrop, #mapScreenshotPreviewBackdrop {
     position: fixed;
     inset: 0;
     background: rgba(var(--backdrop-rgb), 0.75);
@@ -705,7 +705,7 @@
     padding: 40px;
     z-index: 20;
   }
-  #playerDetailBackdrop[hidden], #playerFullProfileBackdrop[hidden], #mapHistoryBackdrop[hidden], #mapScreenshotPreviewBackdrop[hidden], #pitDetailBackdrop[hidden] {
+  #playerDetailBackdrop[hidden], #playerFullProfileBackdrop[hidden], #mapHistoryBackdrop[hidden], #mapScreenshotPreviewBackdrop[hidden] {
     display: none !important;
   }
 
@@ -1214,111 +1214,6 @@
     cursor: pointer;
   }
   #matchDetailDelete:hover { border-color: var(--loss); background: rgba(var(--loss-rgb), 0.12); }
-
-  /* Pit Tracker Styles */
-  .pit-sidebar-badge {
-    margin-top: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 7px 12px;
-    background: rgba(255, 82, 8, 0.08);
-    border: 1px solid rgba(255, 82, 8, 0.3);
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    user-select: none;
-  }
-  .pit-sidebar-badge:hover {
-    background: rgba(255, 82, 8, 0.18);
-    border-color: #ff5208;
-    box-shadow: 0 0 12px rgba(255, 82, 8, 0.25);
-  }
-  .pit-sidebar-badge .pit-icon {
-    font-size: 15px;
-    line-height: 1;
-  }
-  .pit-sidebar-badge .pit-text {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    font-family: var(--font-display);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: #ff5208;
-    text-transform: uppercase;
-  }
-  .pit-sidebar-badge .pit-count {
-    font-size: 15px;
-    color: #ff7336;
-  }
-  .rating-badge.pit-rating-badge {
-    background: rgba(255, 82, 8, 0.1);
-    border-color: rgba(255, 82, 8, 0.35);
-    color: #ff5208;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .rating-badge.pit-rating-badge:hover {
-    background: rgba(255, 82, 8, 0.2);
-    border-color: #ff5208;
-  }
-  .pit-tracker-panel {
-    transition: border-color 0.15s ease, background 0.15s ease;
-  }
-  .pit-tracker-panel:hover {
-    border-color: rgba(255, 82, 8, 0.45);
-    background: rgba(var(--card-rgb), 0.98);
-  }
-  .round-kill-badge--pit {
-    background: rgba(255, 82, 8, 0.15) !important;
-    border-color: rgba(255, 82, 8, 0.45) !important;
-    color: #ff5208 !important;
-  }
-  .round-kill-actor--pit {
-    color: #ff5208 !important;
-    font-weight: 700;
-  }
-  #pitDetailCard {
-    width: 860px;
-    max-width: 95vw;
-    max-height: 88vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: rgba(var(--card-rgb), 0.98);
-    border: 1px solid rgba(255, 82, 8, 0.35);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-  }
-  #pitDetailHeader {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .pit-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-  }
-  .pit-victim-row {
-    cursor: pointer;
-    transition: background 0.12s ease;
-  }
-  .pit-victim-row:hover {
-    background: rgba(var(--accent-rgb), 0.08);
-  }
-  .pit-claim-row {
-    cursor: pointer;
-    transition: background 0.12s ease;
-  }
-  .pit-claim-row:hover {
-    background: rgba(255, 82, 8, 0.08);
-  }
 </style>
 </head>
 <body>
@@ -1327,13 +1222,6 @@
       <div class="name">Due<span class="accent">Process</span></div>
       <div class="ver" id="appVersionLabel">Tracker</div>
       <div id="playerCountBadge" hidden style="margin-top:8px;text-align:center;font-family:var(--font-display);font-size:14px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);background:rgba(var(--accent-rgb), 0.1);border:1px solid rgba(var(--accent-rgb), 0.25);border-radius:3px;padding:7px 10px"><span id="playerCount">—</span> PLAYING NOW</div>
-      <div id="pitDeathsBadge" class="pit-sidebar-badge" title="The Pit · Click to view global claim log">
-        <span class="pit-icon">🔥</span>
-        <div class="pit-text">
-          <span id="pitDeathsSidebarCount" class="pit-count">0</span>
-          <span>PIT CLAIMS</span>
-        </div>
-      </div>
     </div>
     <nav>
       <div class="nav-item active" data-view="home"><span class="nav-dot"></span>Home</div>
@@ -1364,9 +1252,8 @@
           <img id="playerAvatar" src="" alt="" hidden style="width:56px;height:56px;border-radius:6px;object-fit:cover;background:rgba(var(--tint-rgb), 0.05);border:1px solid var(--border-soft)" />
           <div>
             <h1 id="playerName">—</h1>
-            <div style="margin-top:4px;display:flex;align-items:center;gap:8px">
+            <div style="margin-top:4px">
               <span class="rating-badge" id="playerRatingBadge" hidden>DPL Rating <span id="playerRating">1.00</span></span>
-              <span class="rating-badge pit-rating-badge" id="pitHeaderBadge" title="Global Pit claims · Click to view log">🔥 Pit Claims: <span id="pitHeaderCount" style="font-weight:700">0</span></span>
             </div>
           </div>
         </div>
@@ -1438,27 +1325,6 @@
             <div id="sparkline"></div>
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted)">
               <span>Kills per match</span><span id="sparklineAvg" style="color:var(--text)"></span>
-            </div>
-          </div>
-
-          <div class="panel pit-tracker-panel" id="pitTrackerCard" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;cursor:pointer" title="Click to view all Pit claims">
-            <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div class="kicker" style="color:#ff5208;display:flex;align-items:center;gap:6px;margin:0">
-                <span>🔥</span> The Pit Tracker
-              </div>
-              <span class="cat-pill" style="font-size:10px;padding:2px 7px;border-color:rgba(255,82,8,0.3);color:#ff5208">View Log</span>
-            </div>
-            <div style="display:flex;align-items:baseline;gap:12px;margin-top:2px">
-              <div style="font-family:var(--font-display);font-size:36px;font-weight:700;color:#ff5208;line-height:1" id="pitHomeCount">0</div>
-              <div style="display:flex;flex-direction:column">
-                <span style="font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-bright)">Deaths Claimed</span>
-                <span style="font-size:11px;color:var(--text-muted)">Global environmental hazard</span>
-              </div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border-soft);padding-top:8px">
-              <span>Top Victim: <strong id="pitTopVictim" style="color:var(--text-bright)">—</strong></span>
-              <span id="pitSelfCount" style="color:var(--text-dim)">You: 0</span>
             </div>
           </div>
         </div>
@@ -2127,86 +1993,6 @@
   <style>
     #mapPictureLightboxBackdrop[hidden] { display: none !important; }
   </style>
-
-  <div id="pitDetailBackdrop" hidden>
-    <section id="pitDetailCard" class="panel">
-      <span class="corner tl">+</span><span class="corner tr">+</span><span class="corner bl">+</span><span class="corner br">+</span>
-      <header id="pitDetailHeader">
-        <div>
-          <div class="kicker" style="color:#ff5208;display:flex;align-items:center;gap:6px">
-            <span>🔥</span> Environmental Hazard Log
-          </div>
-          <h2 class="title" style="color:#ff5208;margin:2px 0 4px">The Pit · Claims Tracker</h2>
-          <span class="meta" style="color:var(--text-muted);font-size:12px">Every recorded death claimed by the Pit across all matches</span>
-        </div>
-        <button id="pitDetailClose" class="export-btn">Close</button>
-      </header>
-
-      <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;max-height:calc(88vh - 90px)">
-        <!-- Summary Cards Grid -->
-        <div class="pit-summary-grid">
-          <div class="stat-tile">
-            <div class="stat-label">Total Claims</div>
-            <div class="stat-value" id="pitModalTotal" style="color:#ff5208">0</div>
-            <div class="stat-sub">globally recorded</div>
-          </div>
-          <div class="stat-tile">
-            <div class="stat-label">Top Victim</div>
-            <div class="stat-value" id="pitModalTopVictim" style="font-size:20px;text-transform:uppercase">—</div>
-            <div class="stat-sub" id="pitModalTopVictimSub">0 claims</div>
-          </div>
-          <div class="stat-tile">
-            <div class="stat-label">Your Deaths to Pit</div>
-            <div class="stat-value" id="pitModalSelfDeaths">0</div>
-            <div class="stat-sub" id="pitModalSelfSub">0% of claims</div>
-          </div>
-          <div class="stat-tile">
-            <div class="stat-label">Matches With Claims</div>
-            <div class="stat-value" id="pitModalMatchCount">0</div>
-            <div class="stat-sub" id="pitModalModeSub">Ranked vs Other</div>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start">
-          <!-- Victims Leaderboard -->
-          <div>
-            <h3 style="margin:0 0 10px;font-family:var(--font-display);font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-bright)">Victims Claimed</h3>
-            <div class="panel" style="max-height:360px;overflow-y:auto">
-              <table class="rows">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th style="text-align:right">Claims</th>
-                  </tr>
-                </thead>
-                <tbody id="pitVictimsTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Chronological Claims History -->
-          <div style="min-width:0">
-            <h3 style="margin:0 0 10px;font-family:var(--font-display);font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-bright)">Claims History</h3>
-            <div class="panel" style="max-height:360px;overflow-y:auto">
-              <table class="rows">
-                <thead>
-                  <tr>
-                    <th>Victim</th>
-                    <th>Map</th>
-                    <th style="text-align:center">Round</th>
-                    <th style="text-align:center">Mode</th>
-                    <th style="text-align:right">Time</th>
-                    <th style="text-align:right">Date</th>
-                  </tr>
-                </thead>
-                <tbody id="pitClaimsTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
 
   <script src="scoreboard-view.js"></script>
   <script src="hub-renderer.js"></script>

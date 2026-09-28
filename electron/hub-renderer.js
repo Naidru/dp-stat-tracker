@@ -15,28 +15,6 @@ const topWeaponsEl = document.getElementById('topWeapons');
 const sparklineEl = document.getElementById('sparkline');
 const sparklineAvgEl = document.getElementById('sparklineAvg');
 
-// Pit Tracker DOM Elements
-const pitDeathsSidebarCountEl = document.getElementById('pitDeathsSidebarCount');
-const pitDeathsBadgeEl = document.getElementById('pitDeathsBadge');
-const pitHeaderBadgeEl = document.getElementById('pitHeaderBadge');
-const pitHeaderCountEl = document.getElementById('pitHeaderCount');
-const pitTrackerCardEl = document.getElementById('pitTrackerCard');
-const pitHomeCountEl = document.getElementById('pitHomeCount');
-const pitTopVictimEl = document.getElementById('pitTopVictim');
-const pitSelfCountEl = document.getElementById('pitSelfCount');
-
-const pitDetailBackdrop = document.getElementById('pitDetailBackdrop');
-const pitDetailCloseBtn = document.getElementById('pitDetailClose');
-const pitModalTotalEl = document.getElementById('pitModalTotal');
-const pitModalTopVictimEl = document.getElementById('pitModalTopVictim');
-const pitModalTopVictimSubEl = document.getElementById('pitModalTopVictimSub');
-const pitModalSelfDeathsEl = document.getElementById('pitModalSelfDeaths');
-const pitModalSelfSubEl = document.getElementById('pitModalSelfSub');
-const pitModalMatchCountEl = document.getElementById('pitModalMatchCount');
-const pitModalModeSubEl = document.getElementById('pitModalModeSub');
-const pitVictimsTableBody = document.getElementById('pitVictimsTableBody');
-const pitClaimsTableBody = document.getElementById('pitClaimsTableBody');
-
 // ---------------------------------------------------------------------
 // Theme toggle — data-theme on <html> is already applied by the inline
 // <script> in hub.html's <head> (before theme.css is even parsed, to avoid
@@ -654,127 +632,6 @@ function render(data) {
   // staleness path.)
   renderWeaponsTable();
   renderPlayedWithTable();
-  renderPitTracker(data.pitStats);
-}
-
-// ---------------------------------------------------------------------
-// The Pit — Global Hazard Death Tracker
-// ---------------------------------------------------------------------
-
-function renderPitTracker(pitStats) {
-  if (!pitStats) return;
-  const total = pitStats.totalDeaths || 0;
-  const self = pitStats.selfDeaths || 0;
-  const topVictim = pitStats.topVictim;
-
-  if (pitDeathsSidebarCountEl) {
-    pitDeathsSidebarCountEl.textContent = total.toLocaleString();
-  }
-  if (pitHeaderCountEl) {
-    pitHeaderCountEl.textContent = total.toLocaleString();
-  }
-  if (pitHomeCountEl) {
-    pitHomeCountEl.textContent = total.toLocaleString();
-  }
-  if (pitTopVictimEl) {
-    pitTopVictimEl.textContent = topVictim ? `${topVictim.name} (${topVictim.count})` : 'None';
-  }
-  if (pitSelfCountEl) {
-    pitSelfCountEl.textContent = `You: ${self}`;
-  }
-
-  if (pitModalTotalEl) pitModalTotalEl.textContent = total.toLocaleString();
-  if (pitModalTopVictimEl) pitModalTopVictimEl.textContent = topVictim ? topVictim.name : '—';
-  if (pitModalTopVictimSubEl) pitModalTopVictimSubEl.textContent = topVictim ? `${topVictim.count} ${topVictim.count === 1 ? 'claim' : 'claims'}` : 'No claims';
-  if (pitModalSelfDeathsEl) pitModalSelfDeathsEl.textContent = self.toLocaleString();
-  const selfPct = total > 0 ? Math.round((self / total) * 100) : 0;
-  if (pitModalSelfSubEl) pitModalSelfSubEl.textContent = `${selfPct}% of claims`;
-
-  const matchIds = new Set((pitStats.claims || []).map((c) => c.matchId));
-  if (pitModalMatchCountEl) pitModalMatchCountEl.textContent = matchIds.size.toLocaleString();
-  if (pitModalModeSubEl) pitModalModeSubEl.textContent = `${pitStats.rankedTotal || 0} Ranked / ${pitStats.otherTotal || 0} Other`;
-
-  renderPitTables(pitStats);
-}
-
-function renderPitTables(pitStats) {
-  if (!pitVictimsTableBody || !pitClaimsTableBody) return;
-  pitVictimsTableBody.innerHTML = '';
-  pitClaimsTableBody.innerHTML = '';
-
-  const victims = pitStats?.victims || [];
-  if (victims.length === 0) {
-    pitVictimsTableBody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);font-style:italic">No victims claimed yet.</td></tr>';
-  } else {
-    victims.forEach((v) => {
-      const tr = document.createElement('tr');
-      tr.className = 'pit-victim-row';
-      tr.title = 'Click to view player stats';
-      tr.innerHTML = `
-        <td style="font-weight:600;color:var(--text-bright)">${escapeHtml(v.name)}</td>
-        <td style="text-align:right;color:#ff5208;font-weight:700">${v.count}</td>
-      `;
-      tr.addEventListener('click', () => {
-        closePitDetail();
-        const player = (latestHubData?.playedWithStats || []).find((p) => p.name?.toUpperCase() === v.name?.toUpperCase());
-        if (player?.accountId) {
-          openPlayerDetail(player.accountId);
-        }
-      });
-      pitVictimsTableBody.appendChild(tr);
-    });
-  }
-
-  const claims = pitStats?.claims || [];
-  if (claims.length === 0) {
-    pitClaimsTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);font-style:italic">No Pit claims recorded.</td></tr>';
-  } else {
-    claims.forEach((c) => {
-      const tr = document.createElement('tr');
-      tr.className = 'pit-claim-row';
-      const dateStr = c.timestamp ? new Date(c.timestamp).toLocaleDateString() : '—';
-      const selfTag = c.isSelf ? '<span style="font-size:9px;background:rgba(255,82,8,0.2);color:#ff5208;border:1px solid rgba(255,82,8,0.4);border-radius:2px;padding:1px 4px;margin-left:6px">YOU</span>' : '';
-      tr.innerHTML = `
-        <td style="font-weight:600;color:var(--text-bright)">${escapeHtml(c.victimName)}${selfTag}</td>
-        <td style="color:var(--text)">${escapeHtml(c.mapLabel || 'Unknown')}</td>
-        <td style="text-align:center;color:var(--text-dim)">Round ${c.roundNumber || 1}</td>
-        <td style="text-align:center"><span class="cat-pill" style="font-size:9px;padding:1px 5px">${escapeHtml(c.mode || 'Ranked')}</span></td>
-        <td style="text-align:right;font-family:monospace;color:var(--text-muted)">${escapeHtml(c.timeFormatted || '0:00')}</td>
-        <td style="text-align:right;color:var(--text-dim);font-size:11px">${dateStr}</td>
-      `;
-      tr.title = 'Click to open match details';
-      tr.addEventListener('click', () => {
-        closePitDetail();
-        if (c.matchId) {
-          openMatchDetail(c.matchId);
-        }
-      });
-      pitClaimsTableBody.appendChild(tr);
-    });
-  }
-}
-
-function openPitDetail() {
-  if (!pitDetailBackdrop) return;
-  if (latestHubData?.pitStats) {
-    renderPitTracker(latestHubData.pitStats);
-  }
-  pitDetailBackdrop.hidden = false;
-}
-
-function closePitDetail() {
-  if (!pitDetailBackdrop) return;
-  pitDetailBackdrop.hidden = true;
-}
-
-if (pitDeathsBadgeEl) pitDeathsBadgeEl.addEventListener('click', openPitDetail);
-if (pitHeaderBadgeEl) pitHeaderBadgeEl.addEventListener('click', openPitDetail);
-if (pitTrackerCardEl) pitTrackerCardEl.addEventListener('click', openPitDetail);
-if (pitDetailCloseBtn) pitDetailCloseBtn.addEventListener('click', closePitDetail);
-if (pitDetailBackdrop) {
-  pitDetailBackdrop.addEventListener('click', (e) => {
-    if (e.target === pitDetailBackdrop) closePitDetail();
-  });
 }
 
 // ---------------------------------------------------------------------
@@ -2512,21 +2369,13 @@ function selectMatchDetailRound(roundIndex, match) {
       // Time stamps removed from kill feed per user request
 
       const killerEl = document.createElement('span');
-      const isPit = Boolean(
-        k.isPit ||
-        k.killerName?.toUpperCase() === 'PIT' ||
-        k.weapon?.toUpperCase() === 'ROASTED' ||
-        k.weapon?.toUpperCase() === 'PIT'
-      );
-
-      const killerEl = document.createElement('span');
-      killerEl.className = `round-kill-actor ${isPit ? 'round-kill-actor--pit' : (k.killerSide === 0 ? 'round-kill-actor--side0' : k.killerSide === 1 ? 'round-kill-actor--side1' : '')}`;
+      killerEl.className = `round-kill-actor ${k.killerSide === 0 ? 'round-kill-actor--side0' : k.killerSide === 1 ? 'round-kill-actor--side1' : ''}`;
       killerEl.textContent = k.killerName || 'Unknown';
       row.appendChild(killerEl);
 
       const weaponEl = document.createElement('span');
       weaponEl.className = 'round-kill-weapon';
-      weaponEl.textContent = isPit ? 'Pit' : (k.weapon || 'Killed');
+      weaponEl.textContent = k.weapon || 'Killed';
       row.appendChild(weaponEl);
 
       const arrowEl = document.createElement('span');
@@ -2545,12 +2394,7 @@ function selectMatchDetailRound(roundIndex, match) {
         tkBadge.textContent = 'TEAM KILL';
         row.appendChild(tkBadge);
       }
-      if (isPit) {
-        const pitBadge = document.createElement('span');
-        pitBadge.className = 'round-kill-badge round-kill-badge--pit';
-        pitBadge.textContent = 'THE PIT';
-        row.appendChild(pitBadge);
-      } else if (k.isEnvironment) {
+      if (k.isEnvironment) {
         const envBadge = document.createElement('span');
         envBadge.className = 'round-kill-badge round-kill-badge--env';
         envBadge.textContent = 'ENV';
@@ -2842,10 +2686,6 @@ matchDetailBackdrop.addEventListener('click', async (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (pitDetailBackdrop && !pitDetailBackdrop.hidden) {
-      closePitDetail();
-      return;
-    }
     if (playerFullProfileBackdrop && !playerFullProfileBackdrop.hidden) {
       closeFullPlayerProfile();
       return;
