@@ -64,7 +64,7 @@ function renderScoreboardTeamColumn(teamIndex, label, roundWins, rows, localAcco
     let dplTagHtml = '';
     if (dplVal !== null) {
       const tierClass = dplVal >= 1.2 ? 'dpl-tag--high' : dplVal >= 0.9 ? 'dpl-tag--mid' : 'dpl-tag--low';
-      dplTagHtml = `<span class="played-with-tag dpl-tag ${tierClass}" title="Match DPL Rating: ${dplVal.toFixed(2)}">DPL ${dplVal.toFixed(2)}</span>`;
+      dplTagHtml = `<span class="played-with-tag dpl-tag ${tierClass}" title="Match DPL Rating: ${dplVal.toFixed(2)}">${dplVal.toFixed(2)}</span>`;
     }
 
     // .name-text is a nested span, not just the name string directly inside
