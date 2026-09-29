@@ -837,32 +837,17 @@ function renderLiveMatch() {
 // `.player-row` with a `data-account-id` attribute (added there
 // specifically to support this), and the name is `span.name`.
 function attachPlayerClickHandlers(container) {
-  const playedWithMap = new Map((latestHubData?.playedWith ?? []).map((p) => [p.accountId, p]));
-
   container.querySelectorAll('.player-row').forEach((row) => {
     const accountId = row.dataset.accountId;
     if (!accountId) return;
 
     const nameEl = row.querySelector('.name');
-    if (nameEl && !nameEl.querySelector('.played-with-tag')) {
+    if (nameEl && !nameEl.classList.contains('player-name-link')) {
       nameEl.classList.add('player-name-link');
       nameEl.addEventListener('click', (e) => {
         e.stopPropagation();
         openPlayerDetail(accountId);
       });
-
-      const pw = playedWithMap.get(accountId);
-      if (pw) {
-        const tag = document.createElement('span');
-        if (pw.matchesTogether > 0) {
-          tag.className = 'played-with-tag played-with-tag--teammate';
-          tag.textContent = `Teammate (${pw.matchesTogether}g · ${pw.winRateTogether}%)`;
-        } else if (pw.matchesAgainst > 0) {
-          tag.className = 'played-with-tag played-with-tag--rival';
-          tag.textContent = `Rival (${pw.matchesAgainst}g · ${pw.winRateAgainst}%)`;
-        }
-        nameEl.appendChild(tag);
-      }
     }
   });
 }

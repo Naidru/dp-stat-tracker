@@ -406,9 +406,36 @@ a:hover {
   min-width: 0;
   flex: 1 1 auto;
 }
-.player-row .name .played-with-tag {
+.player-row .name .played-with-tag,
+.player-row .name .dpl-tag {
   flex: 0 9999 auto;
   min-width: 0;
+}
+.dpl-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.dpl-tag--high {
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  color: var(--accent-bright);
+}
+.dpl-tag--mid {
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+}
+.dpl-tag--low {
+  background: rgba(var(--tint-rgb), 0.02);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
 }
 .player-row.is-you .name { color: var(--accent); }
 .num { text-align: right; font-family: var(--font-display); font-size: 15px; color: var(--text); }
